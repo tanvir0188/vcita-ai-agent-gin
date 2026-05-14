@@ -1,0 +1,57 @@
+# /etc/systemd/system/vcita-agent.service
+# Install: sudo cp vcita-agent.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable vcita-agent
+#          sudo systemctl start vcita-agent
+
+[Unit]
+Description=vcita AI Patient Agent
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vcita
+Group=vcita
+WorkingDirectory=/opt/vcita-agent
+
+# Binary path
+ExecStart=/opt/vcita-agent/vcita-agent
+
+# Restart on failure with backoff
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Environment — set secrets here or in EnvironmentFile
+# EnvironmentFile=/etc/vcita-agent/env  (chmod 600, owned by root)
+Environment=ENVIRONMENT=production
+Environment=PORT=8443
+Environment=TLS_CERT_FILE=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+Environment=TLS_KEY_FILE=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+Environment=DB_PATH=/data/vcita_agent/vcita_agent.db
+Environment=REFILL_CHECK_SCHEDULE=0 8 * * *
+# Sensitive vars go in EnvironmentFile with mode 600:
+# VCITA_DIRECTORY_TOKEN, VCITA_BUSINESS_TOKEN, VCITA_WEBHOOK_SECRET,
+# ENCRYPTION_KEY_B64, SMTP_PASSWORD
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/data/vcita_agent
+ProtectHome=yes
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+# Logging goes to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vcita-agent
+
+[Install]
+WantedBy=multi-user.target
