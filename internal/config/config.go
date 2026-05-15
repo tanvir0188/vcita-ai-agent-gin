@@ -14,6 +14,7 @@ import (
 // Config holds the complete application configuration.
 // All fields are validated during Load(); missing required values cause a fatal error.
 type Config struct {
+	Environment   string
 	// Server
 	ServerPort    string
 	TLSCertFile   string
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
 
 	// ── Required fields ──────────────────────────────────────────────────────
 	required := map[string]*string{
+		"ENVIRONMENT":			 &cfg.Environment
 		"SERVER_PORT":           &cfg.ServerPort,
 		"VCITA_API_BASE":        &cfg.VcitaAPIBase,
 		"VCITA_DIRECTORY_TOKEN": &cfg.VcitaDirectoryToken,
@@ -83,8 +85,14 @@ func Load() (*Config, error) {
 	}
 
 	// TLS cert/key – required only in production (skip if SERVER_PORT == 8080 for local dev)
+	cfg.Environment = os.Getenv("ENVIRONMENT")
+
 	cfg.TLSCertFile = os.Getenv("SERVER_TLS_CERT_FILE")
 	cfg.TLSKeyFile = os.Getenv("SERVER_TLS_KEY_FILE")
+	if cfg.Environment == "local"{
+		cfg.TLSCertFile = ""
+		cfg.TLSKeyFile = ""
+	}
 
 	// ── SMTP port ────────────────────────────────────────────────────────────
 	portStr := os.Getenv("SMTP_PORT")
