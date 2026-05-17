@@ -14,14 +14,14 @@ import (
 // Config holds the complete application configuration.
 // All fields are validated during Load(); missing required values cause a fatal error.
 type Config struct {
-	Environment   string
+	Environment string
 	// Server
-	ServerPort    string
-	TLSCertFile   string
-	TLSKeyFile    string
+	ServerPort  string
+	TLSCertFile string
+	TLSKeyFile  string
 
 	// vcita / inTandem
-	VcitaAPIBase       string
+	VcitaAPIBase        string
 	VcitaDirectoryToken string
 	VcitaBusinessToken  string
 	VcitaWebhookSecret  string
@@ -54,12 +54,14 @@ type Config struct {
 func Load() (*Config, error) {
 	// Load .env if present (ignored in production where env vars are injected by systemd/Docker)
 	_ = godotenv.Load()
+	var Environment string = os.Getenv("ENVIRONMENT")
+	fmt.Print(Environment)
 
 	cfg := &Config{}
 
 	// ── Required fields ──────────────────────────────────────────────────────
 	required := map[string]*string{
-		"ENVIRONMENT":			 &cfg.Environment
+		"ENVIRONMENT":           &cfg.Environment,
 		"SERVER_PORT":           &cfg.ServerPort,
 		"VCITA_API_BASE":        &cfg.VcitaAPIBase,
 		"VCITA_DIRECTORY_TOKEN": &cfg.VcitaDirectoryToken,
@@ -89,7 +91,7 @@ func Load() (*Config, error) {
 
 	cfg.TLSCertFile = os.Getenv("SERVER_TLS_CERT_FILE")
 	cfg.TLSKeyFile = os.Getenv("SERVER_TLS_KEY_FILE")
-	if cfg.Environment == "local"{
+	if cfg.Environment == "local" {
 		cfg.TLSCertFile = ""
 		cfg.TLSKeyFile = ""
 	}
@@ -118,6 +120,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("PHI_ENCRYPTION_KEY must decode to exactly 32 bytes (AES-256), got %d", len(keyBytes))
 	}
 	cfg.PHIEncryptionKey = keyBytes
+	fmt.Println("Configuration loaded successfully")
 
 	return cfg, nil
 }
