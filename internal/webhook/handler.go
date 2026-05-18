@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
+	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 	"github.com/tanvir0188/vcita-ai-agent/internal/vcita"
 )
 
@@ -73,249 +75,128 @@ func New(secret string, db *store.DB, vc *vcita.APIClient, ai AIService, auditor
 // Handle is the Gin handler for POST /webhook.
 // It reads the raw body for signature verification, then dispatches async.
 func (h *Handler) Handle(c *gin.Context) {
-	// Read raw body — Gin normally consumes it; we need it raw for HMAC.
+
+	// Read raw body
 	body, err := c.GetRawData()
 	if err != nil {
-		h.log.Warn("webhook: failed to read body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot read body"})
+		h.log.Warn("webhook: failed to read body",
+			zap.Error(err),
+		)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "cannot read body",
+		})
+
 		return
 	}
 
-	// ── 1. Verify HMAC-SHA256 signature ──────────────────────────────────────
+	// Parse webhook
+	var envelope WebhookEnvelope
 
-	// if !h.verifySignature(c.GetHeader("X-Vcita-Signature"), body) {
-	// 	h.log.Warn("webhook: invalid signature – request rejected")
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
-	// 	return
-	// }
-	h.log.Info("webhook payload:", zap.ByteString("payload", body))
-
-	// ── 2. Parse event envelope ───────────────────────────────────────────────
-	var envelope struct {
-		EventType string          `json:"event_type"`
-		Payload   json.RawMessage `json:"payload"`
-	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "malformed envelope"})
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "malformed envelope",
+		})
+
 		return
 	}
 
-	// ── 3. Respond 200 immediately so inTandem does not retry ─────────────────
-	c.JSON(http.StatusOK, gin.H{"received": true})
-
-	// ── 4. Dispatch asynchronously under a fresh context ─────────────────────
-	payload := envelope.Payload
-	eventType := envelope.EventType
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		h.dispatch(ctx, eventType, payload)
-	}()
-}
-
-// dispatch routes each event type to its dedicated handler.
-func (h *Handler) dispatch(ctx context.Context, eventType string, payload json.RawMessage) {
-	switch eventType {
-	case "message.client_sent_message":
-		h.handleClientMessage(ctx, payload)
-	case "message.business_sent_message":
-		// We sent this ourselves — audit and skip.
-		h.auditor.Log("webhook_skipped", "", "system", "event=business_sent_message")
-	case "client.updated":
-		h.handleClientUpdated(ctx, payload)
-	case "appointment.requested":
-		h.handleAppointmentRequested(ctx, payload)
-	default:
-		h.log.Debug("webhook: unhandled event", zap.String("event_type", eventType))
-	}
-}
-
-// ── Event handlers ────────────────────────────────────────────────────────────
-
-func (h *Handler) handleClientMessage(ctx context.Context, raw json.RawMessage) {
-	var msg vcita.MessagePayload
-	if err := json.Unmarshal(raw, &msg); err != nil {
-		h.log.Error("webhook: parse MessagePayload", zap.Error(err))
-		return
-	}
-
-	h.auditor.Log("webhook_received", msg.ClientID, "system",
-		fmt.Sprintf("event=client_sent_message channel=%s", msg.Channel))
-
-	// Persist incoming patient message (encrypted)
-	if err := h.db.SaveMessage(msg.ClientID, "patient", msg.Body, "client_sent_message", false); err != nil {
-		h.log.Error("webhook: save patient message", zap.Error(err))
-		return
-	}
-
-	// Fetch conversation history and vcita notes for AI context
-	history, err := h.db.GetConversationHistory(msg.ClientID, 10)
-	if err != nil {
-		h.log.Error("webhook: get conversation history", zap.Error(err))
-		return
-	}
-
-	notes, err := h.vcitaClient.GetClientNotes(ctx, msg.ClientID)
-	if err != nil {
-		h.log.Warn("webhook: could not fetch notes", zap.Error(err))
-		notes = nil
-	}
-
-	// Pull latest medication info from refill schedule if present
-	medInfo := ""
-	reminders, _ := h.db.GetDueReminders()
-	for _, r := range reminders {
-		if r.ClientID == msg.ClientID {
-			medInfo = r.Medication
-			break
-		}
-	}
-
-	// ── Call AI ───────────────────────────────────────────────────────────────
-	reply, escalate, err := h.ai.ProcessMessage(ctx, msg.ClientID, history, notes, medInfo)
-	if err != nil {
-		h.log.Error("webhook: AI ProcessMessage failed", zap.Error(err))
-		h.sendFallback(ctx, msg)
-		return
-	}
-
-	h.auditor.Log("ai_response_generated", msg.ClientID, "ai",
-		fmt.Sprintf("escalate=%v", escalate))
-
-	if escalate {
-		h.escalate(ctx, msg.ClientID, "AI flagged message for human review")
-	}
-
-	// Persist AI reply (encrypted) then send via vcita API
-	if err := h.db.SaveMessage(msg.ClientID, "assistant", reply, "ai_response", escalate); err != nil {
-		h.log.Error("webhook: save assistant reply", zap.Error(err))
-	}
-
-	if err := h.vcitaClient.SendMessage(ctx, vcita.SendMessageRequest{
-		ClientID:       msg.ClientID,
-		ConversationID: msg.ConversationID,
-		Body:           reply,
-		Channel:        msg.Channel,
-	}); err != nil {
-		h.log.Error("webhook: vcita SendMessage failed", zap.Error(err))
-		return
-	}
-
-	h.auditor.Log("message_sent", msg.ClientID, "system", "channel="+msg.Channel)
-}
-
-func (h *Handler) handleClientUpdated(ctx context.Context, raw json.RawMessage) {
-	var payload struct {
-		ClientID string `json:"client_id"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		h.log.Error("webhook: parse client.updated", zap.Error(err))
-		return
-	}
-
-	notes, err := h.vcitaClient.GetClientNotes(ctx, payload.ClientID)
-	if err != nil {
-		h.log.Warn("webhook: client.updated – get notes failed", zap.Error(err))
-		return
-	}
-
-	for _, note := range notes {
-		if !strings.EqualFold(note.NoteType, "current_medications") {
-			continue
-		}
-
-		medInfo, supplyDays, err := h.ai.ExtractMedication(ctx, note.Content)
-		if err != nil {
-			h.log.Error("webhook: ExtractMedication failed", zap.Error(err))
-			h.auditor.Log("medication_extraction_failed", payload.ClientID, "system", "note_id="+note.ID)
-			continue
-		}
-
-		refillDate := calculateRefillDate(supplyDays)
-		if err := h.db.UpsertRefillSchedule(payload.ClientID, medInfo, refillDate); err != nil {
-			h.log.Error("webhook: upsert refill schedule", zap.Error(err))
-			continue
-		}
-
-		h.auditor.Log("medication_updated", payload.ClientID, "system",
-			fmt.Sprintf("note_id=%s refill_date=%s", note.ID, refillDate.Format("2006-01-02")))
-	}
-}
-
-func (h *Handler) handleAppointmentRequested(ctx context.Context, raw json.RawMessage) {
-	var appt vcita.AppointmentPayload
-	if err := json.Unmarshal(raw, &appt); err != nil {
-		h.log.Error("webhook: parse AppointmentPayload", zap.Error(err))
-		return
-	}
-
-	h.auditor.Log("appointment_requested", appt.ClientID, "system",
-		"appointment_id="+appt.AppointmentID)
-
-	staff, err := h.vcitaClient.GetStaff(ctx)
-	if err != nil {
-		h.log.Error("webhook: get staff", zap.Error(err))
-		h.escalate(ctx, appt.ClientID, "Could not fetch staff for appointment")
-		return
-	}
-
-	from, to := time.Now(), time.Now().Add(7*24*time.Hour)
-	var allSlots []vcita.TimeSlot
-	for _, s := range staff {
-		slots, err := h.vcitaClient.GetAvailableSlots(ctx, s.ID, from, to)
-		if err != nil {
-			h.log.Warn("webhook: get slots", zap.String("staff_id", s.ID), zap.Error(err))
-			continue
-		}
-		allSlots = append(allSlots, slots...)
-	}
-
-	if len(allSlots) == 0 {
-		h.escalate(ctx, appt.ClientID, "No available slots for appointment request")
-		return
-	}
-
-	history, _ := h.db.GetConversationHistory(appt.ClientID, 5)
-	suggestion, err := h.ai.SuggestAppointment(ctx, AppointmentRequest{
-		ClientID:        appt.ClientID,
-		RequestedTime:   appt.RequestedTime,
-		ServiceName:     appt.ServiceName,
-		AvailableSlots:  allSlots,
-		AvailableStaff:  staff,
-		ConversationCtx: history,
+	// Respond immediately
+	c.JSON(http.StatusOK, gin.H{
+		"received": true,
 	})
-	if err != nil {
-		h.log.Error("webhook: SuggestAppointment failed", zap.Error(err))
-		h.escalate(ctx, appt.ClientID, "AI could not suggest appointment slot")
-		return
-	}
 
-	if suggestion.HumanInterventionNeeded {
-		h.escalate(ctx, appt.ClientID, "AI flagged appointment for human review")
-		return
-	}
+	payload := envelope.Data
+	eventType := envelope.EventType
 
-	sugID, err := h.db.SaveAppointmentSuggestion(
-		appt.ClientID,
-		suggestion.Staff.ID,
-		suggestion.Slot.StartTime.Format(time.RFC3339),
+	h.log.Info("webhook received",
+		zap.String("event_type", eventType),
 	)
-	if err != nil {
-		h.log.Error("webhook: save appointment suggestion", zap.Error(err))
-	}
 
-	if err := h.vcitaClient.SendMessage(ctx, vcita.SendMessageRequest{
-		ClientID: appt.ClientID,
-		Body:     suggestion.ConfirmationMessage,
-	}); err != nil {
-		h.log.Error("webhook: send appointment confirmation", zap.Error(err))
-		_ = h.db.UpdateAppointmentStatus(sugID, "rejected")
+	h.log.Info("webhook payload",
+		zap.Any("payload", payload),
+	)
+
+	// Skip outbound messages
+	if payload.Direction == "business_to_client" {
+
+		h.log.Info("message sent by business, skipping processing",
+			zap.String("message_uid", payload.UID),
+		)
+
 		return
 	}
 
-	_ = h.db.UpdateAppointmentStatus(sugID, "confirmed")
-	h.auditor.Log("appointment_confirmed", appt.ClientID, "system",
-		fmt.Sprintf("suggestion_id=%d", sugID))
+	var (
+		history string
+		notes   []string
+
+		historyErr error
+		notesErr   error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Fetch message history concurrently
+	go func() {
+		defer wg.Done()
+
+		history, historyErr = utils.GetMessageHistory(
+			payload.ConversationUID,
+		)
+	}()
+
+	// Fetch notes concurrently
+	go func() {
+		defer wg.Done()
+
+		notes, notesErr = utils.GetClientNotes(
+			payload.ConversationUID,
+		)
+	}()
+
+	// Wait for both requests
+	wg.Wait()
+
+	// Handle history result
+	if historyErr != nil {
+
+		h.log.Error("failed to fetch message history",
+			zap.String("conversation_uid", payload.ConversationUID),
+			zap.Error(historyErr),
+		)
+
+	} else {
+
+		h.log.Info("message history fetched",
+			zap.String("conversation_uid", payload.ConversationUID),
+			zap.String("history", history),
+		)
+	}
+
+	// Handle notes result
+	if notesErr != nil {
+
+		h.log.Error("failed to fetch client notes",
+			zap.String("conversation_uid", payload.ConversationUID),
+			zap.Error(notesErr),
+		)
+
+	} else {
+
+		h.log.Info("client notes fetched",
+			zap.String("conversation_uid", payload.ConversationUID),
+			zap.Any("notes", notes),
+		)
+	}
+
+	// AI processing
+	utils.CreateMessage(
+		payload.ContactUID,
+		"Ai processed texts",
+	)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

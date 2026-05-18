@@ -21,6 +21,7 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
+	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
 	"github.com/tanvir0188/vcita-ai-agent/internal/notify"
 	"github.com/tanvir0188/vcita-ai-agent/internal/scheduler"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
@@ -41,14 +42,16 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
+	_ = cfg
 
-	// ── 2. Logger ─────────────────────────────────────────────────────────────
-	log, err := buildLogger()
+	err = logger.Init()
 	if err != nil {
 		return fmt.Errorf("logger: %w", err)
 	}
-	defer log.Sync() //nolint:errcheck
-	log.Info("vcita-ai-agent starting")
+
+	defer logger.Log.Sync() //nolint:errcheck
+
+	logger.Log.Info("vcita-ai-agent starting")
 
 	// ── 3. Encryption (AES-256-GCM) ───────────────────────────────────────────
 	enc, err := crypto.NewEncryptor(cfg.PHIEncryptionKey)
@@ -60,12 +63,12 @@ func run() error {
 	if err := os.MkdirAll("data", 0700); err != nil {
 		return fmt.Errorf("create data dir: %w", err)
 	}
-	db, err := store.New(cfg.DBDSN, enc, log)
+	db, err := store.New(cfg.DBDSN, enc, logger.Log)
 	if err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
 	defer db.Close()
-	log.Info("database connected and migrated")
+	logger.Log.Info("database connected and migrated")
 
 	// ── 5. Audit logger ───────────────────────────────────────────────────────
 	if err := os.MkdirAll("logs", 0700); err != nil {
@@ -81,13 +84,13 @@ func run() error {
 	vcitaClient := vcita.NewAPIClient(cfg.VcitaAPIBase, cfg.VcitaBusinessToken)
 
 	// ── 7. Notifier ───────────────────────────────────────────────────────────
-	notifier := notify.NewNotifier(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom, cfg.AlertEmailTo, log)
+	notifier := notify.NewNotifier(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom, cfg.AlertEmailTo, logger.Log)
 
 	// ── 8. AI service (swap stub for real implementation when ready) ──────────
 	aiService := &ai.Stub{}
 
 	// ── 9. Webhook handler ────────────────────────────────────────────────────
-	wh := webhook.New(cfg.VcitaWebhookSecret, db, vcitaClient, aiService, auditor, log)
+	wh := webhook.New(cfg.VcitaWebhookSecret, db, vcitaClient, aiService, auditor, logger.Log)
 
 	// ── 10. Gin router ────────────────────────────────────────────────────────
 	// Set Gin to release mode in production — disables debug noise in logs
@@ -96,9 +99,9 @@ func run() error {
 	r := gin.New() // gin.New() instead of gin.Default() so we control all middleware
 
 	// Middleware stack
-	r.Use(ginZapLogger(log)) // structured access log, no body logging
-	r.Use(gin.Recovery())    // recover from panics
-	r.Use(securityHeaders()) // HSTS, X-Frame-Options, etc.
+	r.Use(ginZapLogger(logger.Log)) // structured access log, no body logging
+	r.Use(gin.Recovery())           // recover from panics
+	r.Use(securityHeaders())        // HSTS, X-Frame-Options, etc.
 
 	// Routes
 	r.POST("/webhook", wh.Handle)
@@ -107,7 +110,7 @@ func run() error {
 	})
 
 	// ── 11. Scheduler ─────────────────────────────────────────────────────────
-	sched := scheduler.New(db, vcitaClient, notifier, auditor, log)
+	sched := scheduler.New(db, vcitaClient, notifier, auditor, logger.Log)
 	if err := sched.Start(); err != nil {
 		return fmt.Errorf("scheduler: %w", err)
 	}
@@ -127,17 +130,17 @@ func run() error {
 			MinVersion:       tls.VersionTLS12,
 			CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
 		}
-		log.Info("starting HTTPS server", zap.String("addr", srv.Addr))
+		logger.Log.Info("starting HTTPS server", zap.String("addr", srv.Addr))
 		go func() {
 			if err := srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Fatal("HTTPS server error", zap.Error(err))
+				logger.Log.Fatal("HTTPS server error", zap.Error(err))
 			}
 		}()
 	} else {
-		log.Warn("TLS not configured – HTTP only (development mode)")
+		logger.Log.Warn("TLS not configured – HTTP only (development mode)")
 		go func() {
 			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Fatal("HTTP server error", zap.Error(err))
+				logger.Log.Fatal("HTTP server error", zap.Error(err))
 			}
 		}()
 	}
@@ -150,7 +153,7 @@ func run() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Info("shutting down…")
+	logger.Log.Info("shutting down…")
 	auditor.Log("server_shutdown", "", "system", "signal received")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -158,7 +161,7 @@ func run() error {
 	if err := srv.Shutdown(ctx); err != nil {
 		return fmt.Errorf("shutdown: %w", err)
 	}
-	log.Info("shutdown complete")
+	logger.Log.Info("shutdown complete")
 	return nil
 }
 
