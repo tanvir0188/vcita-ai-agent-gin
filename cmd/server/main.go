@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
@@ -86,11 +85,9 @@ func run() error {
 	// ── 7. Notifier ───────────────────────────────────────────────────────────
 	notifier := notify.NewNotifier(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom, cfg.AlertEmailTo, logger.Log)
 
-	// ── 8. AI service (swap stub for real implementation when ready) ──────────
-	aiService := &ai.Stub{}
-
 	// ── 9. Webhook handler ────────────────────────────────────────────────────
-	wh := webhook.New(cfg.VcitaWebhookSecret, db, vcitaClient, aiService, auditor, logger.Log)
+	wh := webhook.New(cfg.VcitaWebhookSecret, db, vcitaClient, auditor, logger.Log)
+	conversationReadHandler := webhook.NewConversation(cfg.VcitaWebhookSecret, db, auditor, logger.Log)
 
 	// ── 10. Gin router ────────────────────────────────────────────────────────
 	// Set Gin to release mode in production — disables debug noise in logs
@@ -105,6 +102,7 @@ func run() error {
 
 	// Routes
 	r.POST("/webhook", wh.Handle)
+	r.POST("/webhook/conversation-read", conversationReadHandler.ConversationReadHandle)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})

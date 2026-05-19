@@ -58,15 +58,15 @@ type Handler struct {
 	ai            AIService
 	auditor       *audit.Logger
 	log           *zap.Logger
+	
 }
 
 // New constructs a Handler with all its dependencies.
-func New(secret string, db *store.DB, vc *vcita.APIClient, ai AIService, auditor *audit.Logger, log *zap.Logger) *Handler {
+func New(secret string, db *store.DB, vc *vcita.APIClient, auditor *audit.Logger, log *zap.Logger) *Handler {
 	return &Handler{
 		webhookSecret: secret,
 		db:            db,
 		vcitaClient:   vc,
-		ai:            ai,
 		auditor:       auditor,
 		log:           log,
 	}
@@ -119,7 +119,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	)
 
 	// Skip outbound messages
-	if payload.Direction == "business_to_client" {
+	if payload.Direction == "business_to_client" || payload.ContactUID != "06dodrl3k4w5k1rd" {
 
 		h.log.Info("message sent by business, skipping processing",
 			zap.String("message_uid", payload.UID),
@@ -129,7 +129,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	}
 
 	var (
-		history string
+		history []utils.Message
 		notes   []string
 
 		historyErr error
@@ -172,7 +172,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 		h.log.Info("message history fetched",
 			zap.String("conversation_uid", payload.ConversationUID),
-			zap.String("history", history),
+			zap.Any("history", history),
 		)
 	}
 
@@ -193,10 +193,11 @@ func (h *Handler) Handle(c *gin.Context) {
 	}
 
 	// AI processing
-	utils.CreateMessage(
-		payload.ContactUID,
-		"Ai processed texts",
-	)
+	h.log.Info("Create message function trigger")
+	// utils.CreateMessage(
+	// 	payload.ContactUID,
+	// 	"Ai processed texts",
+	// )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
