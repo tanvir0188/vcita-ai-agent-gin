@@ -46,7 +46,10 @@ func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 
-		h.log.Error("failed to parse conversation read webhook payload", zap.Error(err))
+		h.log.Error(
+			"failed to parse conversation read webhook payload",
+			zap.Error(err),
+		)
 
 		h.auditor.Log(
 			"conversation_read_webhook_parse_failed",
@@ -71,6 +74,36 @@ func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
 		zap.String("updated_at", payload.Data.UpdatedAt),
 	)
 
+	err := h.db.CreateOrUpdateConversationRead(
+		store.ConversationReadParams{
+			ConversationID: payload.Data.MatterUID,
+			HumanActive:    true,
+			UpdatedAt:      payload.Data.UpdatedAt,
+		},
+	)
+
+	if err != nil {
+
+		h.log.Error(
+			"failed to update conversation read state",
+			zap.Error(err),
+		)
+
+		h.auditor.Log(
+			"conversation_read_update_failed",
+			payload.Data.MatterUID,
+			"system",
+			err.Error(),
+		)
+
+		c.JSON(500, gin.H{
+			"success": false,
+			"message": "failed to update conversation",
+		})
+
+		return
+	}
+
 	h.auditor.Log(
 		"conversation_read_webhook_received",
 		payload.Data.MatterUID,
@@ -82,15 +115,6 @@ func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
 			payload.Data.UpdatedAt,
 		),
 	)
-
-	// TODO:
-	// add your business logic here
-	// examples:
-	// - mark unread messages as seen
-	// - update conversation last_seen_at
-	// - notify websocket clients
-	// - sync CRM status
-	// - store read event in database
 
 	c.JSON(200, gin.H{
 		"success": true,

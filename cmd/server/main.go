@@ -101,7 +101,7 @@ func run() error {
 	r.Use(securityHeaders())        // HSTS, X-Frame-Options, etc.
 
 	// Routes
-	r.POST("/webhook", wh.Handle)
+	r.POST("/webhook", wh.ConversationCreateHandle)
 	r.POST("/webhook/conversation-read", conversationReadHandler.ConversationReadHandle)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

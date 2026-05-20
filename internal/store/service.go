@@ -110,7 +110,7 @@ func (d *DB) CreateOrUpdateConversationRead(
 
 	return d.gorm.
 		Model(&Conversation{}).
-		Where("conversation_uid = ?", params.ConversationID).
+		Where("conversation_id = ?", params.ConversationID).
 		Assign(updates).
 		FirstOrCreate(&Conversation{
 			ConversationID: params.ConversationID,
