@@ -11,26 +11,25 @@ import (
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
-	"github.com/tanvir0188/vcita-ai-agent/internal/vcita"
 )
 
 // Handler holds all dependencies for processing webhook events.
 type Handler struct {
 	webhookSecret string
 	db            *store.DB
-	vcitaClient   *vcita.APIClient
-	auditor       *audit.Logger
-	log           *zap.Logger
+
+	auditor *audit.Logger
+	log     *zap.Logger
 }
 
 // New constructs a Handler with all its dependencies.
-func New(secret string, db *store.DB, vc *vcita.APIClient, auditor *audit.Logger, log *zap.Logger) *Handler {
+func New(secret string, db *store.DB, auditor *audit.Logger, log *zap.Logger) *Handler {
 	return &Handler{
 		webhookSecret: secret,
 		db:            db,
-		vcitaClient:   vc,
-		auditor:       auditor,
-		log:           log,
+
+		auditor: auditor,
+		log:     log,
 	}
 }
 

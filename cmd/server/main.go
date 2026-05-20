@@ -21,10 +21,7 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
 	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
-	"github.com/tanvir0188/vcita-ai-agent/internal/notify"
-	"github.com/tanvir0188/vcita-ai-agent/internal/scheduler"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
-	"github.com/tanvir0188/vcita-ai-agent/internal/vcita"
 	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
 )
 
@@ -79,14 +76,8 @@ func run() error {
 	}
 	defer auditor.Close()
 
-	// ── 6. vcita API client ───────────────────────────────────────────────────
-	vcitaClient := vcita.NewAPIClient(cfg.VcitaAPIBase, cfg.VcitaBusinessToken)
-
-	// ── 7. Notifier ───────────────────────────────────────────────────────────
-	notifier := notify.NewNotifier(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom, cfg.AlertEmailTo, logger.Log)
-
 	// ── 9. Webhook handler ────────────────────────────────────────────────────
-	wh := webhook.New(cfg.VcitaWebhookSecret, db, vcitaClient, auditor, logger.Log)
+	wh := webhook.New(cfg.VcitaWebhookSecret, db, auditor, logger.Log)
 	conversationReadHandler := webhook.NewConversation(cfg.VcitaWebhookSecret, db, auditor, logger.Log)
 
 	// ── 10. Gin router ────────────────────────────────────────────────────────
@@ -108,11 +99,6 @@ func run() error {
 	})
 
 	// ── 11. Scheduler ─────────────────────────────────────────────────────────
-	sched := scheduler.New(db, vcitaClient, notifier, auditor, logger.Log)
-	if err := sched.Start(); err != nil {
-		return fmt.Errorf("scheduler: %w", err)
-	}
-	defer sched.Stop()
 
 	// ── 12. HTTP(S) server ────────────────────────────────────────────────────
 	srv := &http.Server{
