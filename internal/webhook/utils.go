@@ -3,6 +3,7 @@ package webhook
 import (
 	"time"
 
+	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
 	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
@@ -118,7 +119,7 @@ func (h *Handler) processWebhook(
 
 		go WaitForEvaluation(
 			h.db,
-			AiEvaluationParam{
+			&AiEvaluationParam{
 				ConversationID:      payload.ConversationUID,
 				ConversationVersion: state.ConversationVersion,
 				PendingMessageID:    payload.UID,
@@ -165,12 +166,12 @@ func (h *Handler) processWebhook(
 	}
 }
 
-func WaitForEvaluation(db *store.DB, params AiEvaluationParam) {
+func WaitForEvaluation(db *store.DB, params *AiEvaluationParam) {
 	logger.Log.Info("Starting AI evaluation cooldown",
 		zap.String("conversation_id", params.ConversationID))
 
 	// Cooldown
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	for attempt := 0; attempt < 3; attempt++ { // retry on transient DB issues
 		state, err := db.GetConversationByID(params.ConversationID)
@@ -208,8 +209,8 @@ func WaitForEvaluation(db *store.DB, params AiEvaluationParam) {
 	}
 
 	// Simulate / Call real AI
-	time.Sleep(8 * time.Second) // or actual AI call
-	generatedReply := "Hello, how can I help you today?"
+	reply_text, err := ai.GetSmartReplyEmail(params.ConversationID, params.ContactId)
+	generatedReply := reply_text
 
 	// === Final validation before sending ===
 	state, err := db.GetConversationByID(params.ConversationID)
