@@ -16,22 +16,39 @@ import (
 // so GORM can query and index them without decryption.
 
 // Message is one turn in a patient conversation.
-type Message struct {
+type Conversation struct {
 	gorm.Model
-	ClientID    string `gorm:"not null;index"`
-	Role        string `gorm:"not null"`        // "patient" | "assistant" | "staff"
-	ContentEnc  string `gorm:"not null"`        // AES-256-GCM encrypted body
-	EventType   string `gorm:"not null;default:''"`
-	IsEscalated bool   `gorm:"not null;default:false"`
+	ID uint `gorm:"primaryKey"`
+
+	ConversationID string `gorm:"uniqueIndex;not null"`
+
+	LastMessageID         string
+	LastCustomerMessageID string
+	LastStaffMessageID    string
+
+	LastMessageFrom string
+
+	LastCustomerMessageAt time.Time
+	LastStaffMessageAt    time.Time
+
+	HumanActive   bool      `gorm:"default:false"`
+	HumanActiveAt time.Time `gorm:"index"`
+
+	ConversationVersion int64 `gorm:"default:0"`
+
+	AIReplyPending    bool `gorm:"default:false;index"`
+	AIReplyGenerating bool `gorm:"default:false"`
+
+	PendingMessageID string
 }
 
 // RefillSchedule holds a medication refill reminder for one patient.
 type RefillSchedule struct {
 	gorm.Model
 	ClientID      string    `gorm:"not null;index"`
-	MedicationEnc string    `gorm:"not null"`            // encrypted: name/dosage/frequency JSON
+	MedicationEnc string    `gorm:"not null"` // encrypted: name/dosage/frequency JSON
 	RefillDate    time.Time `gorm:"not null;index"`
-	ReminderDate  time.Time `gorm:"not null;index"`      // RefillDate - 7 days
+	ReminderDate  time.Time `gorm:"not null;index"` // RefillDate - 7 days
 	ReminderSent  bool      `gorm:"not null;default:false"`
 }
 
@@ -42,17 +59,17 @@ type AuditLog struct {
 	ClientID  string `gorm:"not null;index"` // vcita client_id only, no name/contact
 	Action    string `gorm:"not null;index"`
 	EventType string `gorm:"not null;default:''"`
-	Outcome   string `gorm:"not null"`           // "success" | "error" | "escalated"
+	Outcome   string `gorm:"not null"` // "success" | "error" | "escalated"
 	ActorType string `gorm:"not null;default:'system'"`
-	ErrorMsg  string `gorm:"default:''"`         // never contains PHI
+	ErrorMsg  string `gorm:"default:''"` // never contains PHI
 }
 
 // Escalation records an escalation event requiring human review.
 type Escalation struct {
 	gorm.Model
-	ClientID   string     `gorm:"not null;index"`
-	TriggerEnc string     `gorm:"not null"`   // encrypted: reason for escalation
-	Status     string     `gorm:"not null;default:'open'"` // "open" | "acknowledged" | "resolved"
+	ClientID   string `gorm:"not null;index"`
+	TriggerEnc string `gorm:"not null"`                // encrypted: reason for escalation
+	Status     string `gorm:"not null;default:'open'"` // "open" | "acknowledged" | "resolved"
 	ResolvedAt *time.Time
 }
 

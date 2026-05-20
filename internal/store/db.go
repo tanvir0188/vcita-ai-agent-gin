@@ -51,7 +51,7 @@ func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {
 	// AutoMigrate creates/updates tables to match the model structs.
 	// Safe to run on every startup — it only adds columns and indexes, never drops.
 	if err := gormDB.AutoMigrate(
-		&Message{},
+		&Conversation{},
 		&RefillSchedule{},
 		&AuditLog{},
 		&Escalation{},

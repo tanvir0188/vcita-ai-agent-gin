@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 
@@ -12,17 +11,22 @@ import (
 )
 
 type Message struct {
-	UId           string `json:"uid"`
-	Text          string `json:"text"`
-	MailDelivered bool   `json:"mail_delivered"`
-	WasRead       bool   `json:"was_read"`
-	Direction     string `json:"direction"`
+	UId             string `json:"uid"`
+	Text            string `json:"text"`
+	ConversationUID string `json:"conversation_uid"`
 
+	Staff struct {
+		Uid string `json:"uid"`
+	} `json:"staff"`
+
+	WasRead   bool   `json:"was_read"`
+	Direction string `json:"direction"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
 
 func GetMessageHistory(conversationID string) ([]Message, error) {
+
 	logger.Log.Info(
 		"fetching message history",
 		zap.String("conversation_id", conversationID),
@@ -33,50 +37,69 @@ func GetMessageHistory(conversationID string) ([]Message, error) {
 		conversationID,
 	)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(
+		http.MethodGet,
+		url,
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("accept", "application/json")
-
-	token := "Bearer " + os.Getenv("VCITA_DIRECTORY_TOKEN")
-	req.Header.Add("authorization", token)
+	req.Header.Set("accept", "application/json")
+	req.Header.Set(
+		"authorization",
+		"Bearer "+os.Getenv("VCITA_DIRECTORY_TOKEN"),
+	)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
+
 		logger.Log.Error(
-			"get message history error",
+			"failed to fetch message history",
 			zap.Error(err),
 		)
+
 		return nil, err
 	}
 
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Log.Info(
-		"message history raw response",
-		zap.String("body", string(body)),
-	)
-
 	if res.StatusCode >= 400 {
+
+		var body map[string]interface{}
+
+		_ = json.NewDecoder(res.Body).Decode(&body)
+
+		logger.Log.Error(
+			"vcita api error",
+			zap.Int("status_code", res.StatusCode),
+			zap.Any("response", body),
+		)
+
 		return nil, fmt.Errorf(
-			"vcita api error: %s",
-			string(body),
+			"vcita api returned status %d",
+			res.StatusCode,
 		)
 	}
 
 	var messages []Message
 
-	err = json.Unmarshal(body, &messages)
+	err = json.NewDecoder(res.Body).Decode(&messages)
 	if err != nil {
+
+		logger.Log.Error(
+			"failed to decode message history",
+			zap.Error(err),
+		)
+
 		return nil, err
 	}
+
+	logger.Log.Info(
+		"message history fetched successfully",
+		zap.Int("message_count", len(messages)),
+	)
 
 	return messages, nil
 }
