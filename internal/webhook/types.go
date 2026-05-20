@@ -42,3 +42,10 @@ type ConversationMessage struct {
 	ExternalMessageID *string `json:"external_message_id"`
 	ChannelUID        string  `json:"channel_uid"`
 }
+
+type AiEvaluationParam struct {
+	ConversationID      string
+	ConversationVersion int64
+	PendingMessageID    string
+	ContactId           string
+}

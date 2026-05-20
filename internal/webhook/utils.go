@@ -1,6 +1,9 @@
 package webhook
 
 import (
+	"time"
+
+	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 	"go.uber.org/zap"
@@ -13,7 +16,7 @@ func (h *Handler) processWebhook(
 	payload := envelope.Data
 
 	// Ignore unrelated contacts
-	if payload.ContactUID != "06dodrl3k4w5k1rd" {
+	if payload.ContactUID != "06dodrl3k4w5k1rd" || payload.MessageType != "text" {
 
 		h.log.Info(
 			"ignoring webhook",
@@ -76,7 +79,52 @@ func (h *Handler) processWebhook(
 			)
 		}
 
-		return
+		// get last message id and direction
+		latestMessage := utils.GetLatestMessage(payload.ConversationUID)
+
+		if latestMessage.Direction != "client_to_business" {
+
+			h.log.Info(
+				"latest message not customer, skipping ai evaluation",
+			)
+
+			return
+		}
+
+		if latestMessage.UId != payload.UID {
+
+			h.log.Info(
+				"payload message is no longer latest",
+				zap.String("payload_uid", payload.UID),
+				zap.String("latest_uid", latestMessage.UId),
+			)
+
+			return
+		}
+
+		state, err := h.db.GetConversationByID(
+			payload.ConversationUID,
+		)
+
+		if err != nil {
+
+			h.log.Error(
+				"failed to fetch conversation state",
+				zap.Error(err),
+			)
+
+			return
+		}
+
+		go WaitForEvaluation(
+			h.db,
+			AiEvaluationParam{
+				ConversationID:      payload.ConversationUID,
+				ConversationVersion: state.ConversationVersion,
+				PendingMessageID:    payload.UID,
+				ContactId:           payload.ContactUID,
+			},
+		)
 	}
 
 	// STAFF MESSAGE
@@ -90,11 +138,11 @@ func (h *Handler) processWebhook(
 					LastStaffMessageID: payload.UID,
 					LastMessageFrom:    "staff",
 					HumanActive:        true,
+					HumanActiveUntil:   time.Now().Add(10 * time.Minute),
 					HumanActiveAt:      payload.CreatedAt,
 					AIReplyPending:     false,
 					AIReplyGenerating:  false,
 					PendingMessageID:   "",
-					
 				},
 			)
 
@@ -114,5 +162,84 @@ func (h *Handler) processWebhook(
 		)
 
 		return
+	}
+}
+
+func WaitForEvaluation(db *store.DB, params AiEvaluationParam) {
+	logger.Log.Info("Starting AI evaluation cooldown",
+		zap.String("conversation_id", params.ConversationID))
+
+	// Cooldown
+	time.Sleep(20 * time.Second)
+
+	for attempt := 0; attempt < 3; attempt++ { // retry on transient DB issues
+		state, err := db.GetConversationByID(params.ConversationID)
+		if err != nil {
+			logger.Log.Error("failed to get conversation", zap.Error(err))
+			return
+		}
+
+		// === Validation ===
+		if state.ConversationVersion != params.ConversationVersion {
+			logger.Log.Info("conversation version changed, aborting")
+			return
+		}
+		if state.LastMessageID != params.PendingMessageID {
+			logger.Log.Info("latest message changed, aborting")
+			return
+		}
+		if state.HumanActive && time.Now().Before(state.HumanActiveUntil) {
+			logger.Log.Info("human is still active")
+			return
+		}
+		if state.AIReplyGenerating {
+			logger.Log.Info("another AI generation already in progress")
+			return
+		}
+
+		// Mark as generating
+		state.AIReplyGenerating = true
+		if err := db.SaveConversation(state); err != nil {
+			logger.Log.Error("failed to set AIReplyGenerating", zap.Error(err))
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		break
+	}
+
+	// Simulate / Call real AI
+	time.Sleep(8 * time.Second) // or actual AI call
+	generatedReply := "Hello, how can I help you today?"
+
+	// === Final validation before sending ===
+	state, err := db.GetConversationByID(params.ConversationID)
+	if err != nil ||
+		state.ConversationVersion != params.ConversationVersion ||
+		state.HumanActive && time.Now().Before(state.HumanActiveUntil) ||
+		state.LastMessageID != params.PendingMessageID {
+
+		logger.Log.Info("state changed before sending, aborting")
+		// Optionally reset AIReplyGenerating
+		return
+	}
+
+	// Send message
+	replied, err := utils.CreateMessage(params.ContactId, generatedReply)
+	if err != nil {
+		logger.Log.Error("failed to send AI reply", zap.Error(err))
+		return
+	}
+
+	logger.Log.Info("AI reply sent successfully", zap.String("reply_id", replied))
+
+	// Update state
+	state.AIReplyPending = false
+	state.AIReplyGenerating = false
+	state.ConversationVersion++
+	state.LastMessageID = replied // important!
+	// Optionally reset HumanActive if you want AI to take over again after replying
+
+	if err := db.SaveConversation(state); err != nil {
+		logger.Log.Error("failed to update conversation after AI reply", zap.Error(err))
 	}
 }

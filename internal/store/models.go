@@ -34,6 +34,8 @@ type Conversation struct {
 	HumanActive   bool      `gorm:"default:false"`
 	HumanActiveAt time.Time `gorm:"index"`
 
+	HumanActiveUntil time.Time `gorm:"index"`
+
 	ConversationVersion int64 `gorm:"default:0"`
 
 	AIReplyPending    bool `gorm:"default:false;index"`

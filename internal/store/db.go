@@ -18,6 +18,10 @@ type DB struct {
 	enc  *crypto.Encryptor
 }
 
+func (db *DB) GetGorm() *gorm.DB {
+	return db.gorm
+}
+
 // New opens the SQLite database via GORM, auto-migrates the schema,
 // and returns a ready-to-use DB handle.
 func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {

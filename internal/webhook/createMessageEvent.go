@@ -11,7 +11,6 @@ import (
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
-	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 	"github.com/tanvir0188/vcita-ai-agent/internal/vcita"
 )
 
@@ -78,28 +77,8 @@ func (h *Handler) ConversationCreateHandle(c *gin.Context) {
 		return
 	}
 
-	latestMessages, err := utils.GetMessageHistory(envelope.Data.ConversationUID)
-	if err != nil {
-		h.log.Error(
-			"failed to fetch message history",
-			zap.Error(err),
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to fetch message history",
-		})
-		return
-	}
-	for _, message := range latestMessages {
-
-		h.log.Info(
-			"message",
-			zap.String("uid", message.UId),
-			zap.String("text", message.Text),
-			zap.String("direction", message.Direction),
-		)
-	}
-
 	// Process the webhook asynchronously to avoid blocking the response.
+	h.log.Info("calling go processWebhook function")
 	go h.processWebhook(envelope)
 
 	c.JSON(http.StatusOK, gin.H{

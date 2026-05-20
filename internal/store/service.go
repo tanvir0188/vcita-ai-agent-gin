@@ -54,8 +54,9 @@ type StaffMessageCreateParams struct {
 
 	ConversationVersion int64
 
-	HumanActive   bool
-	HumanActiveAt time.Time
+	HumanActive      bool
+	HumanActiveAt    time.Time
+	HumanActiveUntil time.Time
 
 	AIReplyPending    bool
 	AIReplyGenerating bool
@@ -133,4 +134,11 @@ func (d *DB) GetConversationByID(conversationID string) (*Conversation, error) {
 	}
 
 	return &conversation, nil
+}
+
+func (db *DB) SaveConversation(
+	conversation *Conversation,
+) error {
+
+	return db.gorm.Save(conversation).Error
 }

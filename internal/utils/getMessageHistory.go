@@ -33,7 +33,7 @@ func GetMessageHistory(conversationID string) ([]Message, error) {
 	)
 
 	url := fmt.Sprintf(
-		"https://api.vcita.biz/v2/conversations/%s/messages?last_update=true",
+		"https://api.vcita.biz/v2/conversations/%s/messages?per_page=5",
 		conversationID,
 	)
 
@@ -102,4 +102,24 @@ func GetMessageHistory(conversationID string) ([]Message, error) {
 	)
 
 	return messages, nil
+}
+
+func GetLatestMessage(conversationID string) Message {
+	latestMessages, err := GetMessageHistory(conversationID)
+	if err != nil {
+		logger.Log.Error("failed to get message history: ")
+
+		return Message{}
+	}
+
+	if len(latestMessages) == 0 {
+		logger.Log.Info("no message history found")
+
+		return Message{}
+	}
+
+	// assuming oldest -> newest
+	latestMessage := latestMessages[0]
+
+	return latestMessage
 }
