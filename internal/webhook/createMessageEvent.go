@@ -44,7 +44,7 @@ func (h *Handler) ConversationCreateHandle(c *gin.Context) {
 	if err := c.ShouldBindJSON(&envelope); err != nil {
 
 		h.log.Warn(
-			"invalid webhook payload",
+			"Invalid webhook payload",
 			zap.Error(err),
 		)
 

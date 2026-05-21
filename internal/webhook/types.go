@@ -49,4 +49,5 @@ type AiEvaluationParam struct {
 	PendingMessageID    string
 	ContactId           string
 	Text                string
+	AutoReplyOffUntil   time.Time
 }

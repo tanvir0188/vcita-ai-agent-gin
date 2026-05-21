@@ -18,14 +18,18 @@ func (h *Handler) processWebhook(
 	payload := envelope.Data
 
 	// Ignore unrelated contacts
-	var autoReplyOffUntil time.Time
 
 	// Querying the specific column using the contactid string
-	err := h.db.GetGorm().
-		Model(&store.Conversation{}).
-		Where("conversation_id = ?", envelope.Data.ConversationUID).
-		Pluck("auto_reply_off_until", &autoReplyOffUntil).
-		Error
+	state, err := h.db.GetConversationByID(payload.ConversationUID)
+
+	if err != nil {
+		logger.Log.Error("failded to get conversation state")
+	}
+	if state.AutoReplyOffUntil != nil && time.Now().Before(*state.AutoReplyOffUntil) {
+		h.log.Info("AI replies are disabled for this conversation due to escalation",
+			zap.String("conversation_id", payload.ConversationUID))
+		return
+	}
 
 	if err != nil {
 		logger.Log.Error("failed to get AutoReplyOffUntil timestamp", zap.Error(err))
@@ -38,15 +42,6 @@ func (h *Handler) processWebhook(
 			zap.String("reason", "contact uid mismatch"),
 		)
 
-		return
-	}
-
-	if time.Now().Before(autoReplyOffUntil) {
-		h.log.Info(
-			"ignoring webhook",
-			zap.String("reason", "automation is paused until autoReplyOffUntil timestamp"),
-			zap.Time("paused_until", autoReplyOffUntil),
-		)
 		return
 	}
 
@@ -80,28 +75,28 @@ func (h *Handler) processWebhook(
 			zap.String("conversation_uid", payload.ConversationUID),
 		)
 
-		latestMessages, err := utils.GetMessageHistory(
-			payload.ConversationUID,
-		)
-		if err != nil {
+		// latestMessages, err := utils.GetMessageHistory(
+		// 	payload.ConversationUID,
+		// )
+		// if err != nil {
 
-			h.log.Error(
-				"failed to fetch message history",
-				zap.Error(err),
-			)
+		// 	h.log.Error(
+		// 		"failed to fetch message history",
+		// 		zap.Error(err),
+		// 	)
 
-			return
-		}
+		// 	return
+		// }
 
-		for _, message := range latestMessages {
+		// for _, message := range latestMessages {
 
-			h.log.Info(
-				"message history item",
-				zap.String("uid", message.UId),
-				zap.String("text", message.Text),
-				zap.String("direction", message.Direction),
-			)
-		}
+		// 	h.log.Info(
+		// 		"message history item",
+		// 		zap.String("uid", message.UId),
+		// 		zap.String("text", message.Text),
+		// 		zap.String("direction", message.Direction),
+		// 	)
+		// }
 
 		// get last message id and direction
 		latestMessage := utils.GetLatestMessage(payload.ConversationUID)
@@ -195,46 +190,48 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 		zap.String("conversation_id", params.ConversationID))
 
 	// Cooldown
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	// === Human Intervention / Slack Escalation Trigger ===
 	// Moving this here allows us to send the actual generated text to Slack!
 	humanInterventionNeeded := true
 	escalationReason := "Client has flagged serious conditions requiring clinical oversight."
 
 	if humanInterventionNeeded {
-		// 1. Safely fetch client details using the already-existing *string pointers
+		logger.Log.Warn("Human intervention required - escalating",
+			zap.String("conversation_id", params.ConversationID))
+
 		clientDetails, err := utils.GetClientDetail(webhookSecret, &params.ContactId)
 		if err != nil {
 			logger.Log.Error("failed to fetch client details for slack alert", zap.Error(err))
-		} else {
-			fetchedClient := clientDetails.Data.Client
-
-			// 2. Build the configuration payload
-			slackConfig := utils.SlackClient{
-				WebhookURL: *whUrl,         // Dereference *string to get the raw string URL
-				Text:       params.Text,    // Pass the generated text draft we just got from AI
-				Client:     &fetchedClient, // Pass the address of the ClientInfo struct
-			}
-
-			// 3. Fire the custom block kit formatter function we built
-			err = db.GetGorm().
-				Where("conversation_id = ?", params.ConversationID).
-				Updates(map[string]interface{}{
-					"has_escalated":        true,
-					"auto_reply_off_until": time.Now().Add(48 * time.Hour),
-					"conversation_version": gorm.Expr("conversation_version + 1"),
-				}).Error
-
-			if err != nil {
-				logger.Log.Error(
-					"failed to update escalation state",
-					zap.Error(err),
-				)
-				return
-			}
-			utils.SendMessageToSlack(slackConfig, params.ContactId, escalationReason)
 		}
-		return
+		fetchedClient := clientDetails.Data.Client
+
+		// 2. Build the configuration payload
+		slackConfig := utils.SlackClient{
+			WebhookURL: *whUrl,         // Dereference *string to get the raw string URL
+			Text:       params.Text,    // Pass the generated text draft we just got from AI
+			Client:     &fetchedClient, // Pass the address of the ClientInfo struct
+		}
+
+		// 3. Fire the custom block kit formatter function we built
+		err = db.GetGorm().
+			Model(&store.Conversation{}).
+			Where("conversation_id = ?", params.ConversationID).
+			Updates(map[string]interface{}{
+				"has_escalated":        true,
+				"auto_reply_off_until": time.Now().Add(48 * time.Hour),
+				"conversation_version": gorm.Expr("conversation_version + 1"),
+			}).Error
+
+		if err != nil {
+			logger.Log.Error(
+				"failed to update escalation state",
+				zap.Error(err),
+			)
+			return
+		}
+		utils.SendMessageToSlack(slackConfig, params.ContactId, escalationReason)
+
 	}
 
 	for attempt := 0; attempt < 3; attempt++ { // retry on transient DB issues

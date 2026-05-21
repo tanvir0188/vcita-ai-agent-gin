@@ -43,7 +43,7 @@ type Conversation struct {
 
 	HasEscalated bool `gorm:"default:false"`
 
-	AutoReplyOffUntil time.Time
+	AutoReplyOffUntil *time.Time
 
 	PendingMessageID string
 }

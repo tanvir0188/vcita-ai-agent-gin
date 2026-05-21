@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -121,16 +122,22 @@ func (d *DB) CreateOrUpdateConversationRead(
 
 // GetConversationByID retrieves a conversation by its ConversationID.
 func (d *DB) GetConversationByID(conversationID string) (*Conversation, error) {
-
 	var conversation Conversation
 
 	err := d.gorm.
 		Where("conversation_id = ?", conversationID).
-		First(&conversation).
+		FirstOrCreate(&conversation, Conversation{ // ← Use FirstOrCreate
+			ConversationID:      conversationID,
+			ConversationVersion: 0,
+			HumanActive:         false,
+			AIReplyPending:      false,
+			AIReplyGenerating:   false,
+			HasEscalated:        false,
+		}).
 		Error
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get or create conversation: %w", err)
 	}
 
 	return &conversation, nil
