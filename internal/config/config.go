@@ -46,7 +46,8 @@ type Config struct {
 	AIServiceToken string
 
 	// Audit
-	AuditLogPath string
+	AuditLogPath           string
+	SlackMessageWebhookUrl string
 }
 
 // Load reads configuration from environment variables (and optionally a .env file).
@@ -61,22 +62,23 @@ func Load() (*Config, error) {
 
 	// ── Required fields ──────────────────────────────────────────────────────
 	required := map[string]*string{
-		"ENVIRONMENT":           &cfg.Environment,
-		"SERVER_PORT":           &cfg.ServerPort,
-		"VCITA_API_BASE":        &cfg.VcitaAPIBase,
-		"VCITA_DIRECTORY_TOKEN": &cfg.VcitaDirectoryToken,
-		"VCITA_BUSINESS_TOKEN":  &cfg.VcitaBusinessToken,
-		"VCITA_WEBHOOK_SECRET":  &cfg.VcitaWebhookSecret,
-		"DB_DRIVER":             &cfg.DBDriver,
-		"DB_DSN":                &cfg.DBDSN,
-		"SMTP_HOST":             &cfg.SMTPHost,
-		"SMTP_USER":             &cfg.SMTPUser,
-		"SMTP_PASSWORD":         &cfg.SMTPPassword,
-		"SMTP_FROM":             &cfg.SMTPFrom,
-		"ALERT_EMAIL_TO":        &cfg.AlertEmailTo,
-		"AI_SERVICE_URL":        &cfg.AIServiceURL,
-		"AI_SERVICE_TOKEN":      &cfg.AIServiceToken,
-		"AUDIT_LOG_PATH":        &cfg.AuditLogPath,
+		"ENVIRONMENT":               &cfg.Environment,
+		"SERVER_PORT":               &cfg.ServerPort,
+		"VCITA_API_BASE":            &cfg.VcitaAPIBase,
+		"VCITA_DIRECTORY_TOKEN":     &cfg.VcitaDirectoryToken,
+		"VCITA_BUSINESS_TOKEN":      &cfg.VcitaBusinessToken,
+		"VCITA_WEBHOOK_SECRET":      &cfg.VcitaWebhookSecret,
+		"DB_DRIVER":                 &cfg.DBDriver,
+		"DB_DSN":                    &cfg.DBDSN,
+		"SMTP_HOST":                 &cfg.SMTPHost,
+		"SMTP_USER":                 &cfg.SMTPUser,
+		"SMTP_PASSWORD":             &cfg.SMTPPassword,
+		"SMTP_FROM":                 &cfg.SMTPFrom,
+		"ALERT_EMAIL_TO":            &cfg.AlertEmailTo,
+		"AI_SERVICE_URL":            &cfg.AIServiceURL,
+		"AI_SERVICE_TOKEN":          &cfg.AIServiceToken,
+		"AUDIT_LOG_PATH":            &cfg.AuditLogPath,
+		"SLACK_MESSAGE_WEBHOOK_URL": &cfg.SlackMessageWebhookUrl,
 	}
 	for key, dest := range required {
 		val := os.Getenv(key)
@@ -88,6 +90,7 @@ func Load() (*Config, error) {
 
 	// TLS cert/key – required only in production (skip if SERVER_PORT == 8080 for local dev)
 	cfg.Environment = os.Getenv("ENVIRONMENT")
+	cfg.SlackMessageWebhookUrl = os.Getenv("SLACK_MESSAGE_WEBHOOK_URL")
 
 	cfg.TLSCertFile = os.Getenv("SERVER_TLS_CERT_FILE")
 	cfg.TLSKeyFile = os.Getenv("SERVER_TLS_KEY_FILE")

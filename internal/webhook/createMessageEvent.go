@@ -15,18 +15,20 @@ import (
 
 // Handler holds all dependencies for processing webhook events.
 type Handler struct {
-	webhookSecret string
-	db            *store.DB
+	webhookSecret   string
+	slackWebhookUrl string
+	db              *store.DB
 
 	auditor *audit.Logger
 	log     *zap.Logger
 }
 
 // New constructs a Handler with all its dependencies.
-func New(secret string, db *store.DB, auditor *audit.Logger, log *zap.Logger) *Handler {
+func New(secret string, db *store.DB, slackWebhookUrl string, auditor *audit.Logger, log *zap.Logger) *Handler {
 	return &Handler{
-		webhookSecret: secret,
-		db:            db,
+		webhookSecret:   secret,
+		db:              db,
+		slackWebhookUrl: slackWebhookUrl,
 
 		auditor: auditor,
 		log:     log,

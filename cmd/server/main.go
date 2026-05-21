@@ -77,8 +77,9 @@ func run() error {
 	defer auditor.Close()
 
 	// ── 9. Webhook handler ────────────────────────────────────────────────────
-	wh := webhook.New(cfg.VcitaWebhookSecret, db, auditor, logger.Log)
+	wh := webhook.New(cfg.VcitaWebhookSecret, db,cfg.SlackMessageWebhookUrl, auditor, logger.Log)
 	conversationReadHandler := webhook.NewConversation(cfg.VcitaWebhookSecret, db, auditor, logger.Log)
+	
 
 	// ── 10. Gin router ────────────────────────────────────────────────────────
 	// Set Gin to release mode in production — disables debug noise in logs
