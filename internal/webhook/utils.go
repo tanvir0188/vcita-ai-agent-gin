@@ -8,6 +8,7 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func (h *Handler) processWebhook(
@@ -17,6 +18,19 @@ func (h *Handler) processWebhook(
 	payload := envelope.Data
 
 	// Ignore unrelated contacts
+	var autoReplyOffUntil time.Time
+
+	// Querying the specific column using the contactid string
+	err := h.db.GetGorm().
+		Model(&store.Conversation{}).
+		Where("conversation_id = ?", envelope.Data.ConversationUID).
+		Pluck("auto_reply_off_until", &autoReplyOffUntil).
+		Error
+
+	if err != nil {
+		logger.Log.Error("failed to get AutoReplyOffUntil timestamp", zap.Error(err))
+		return
+	}
 	if payload.ContactUID != "06dodrl3k4w5k1rd" || payload.MessageType != "text" {
 
 		h.log.Info(
@@ -24,6 +38,15 @@ func (h *Handler) processWebhook(
 			zap.String("reason", "contact uid mismatch"),
 		)
 
+		return
+	}
+
+	if time.Now().Before(autoReplyOffUntil) {
+		h.log.Info(
+			"ignoring webhook",
+			zap.String("reason", "automation is paused until autoReplyOffUntil timestamp"),
+			zap.Time("paused_until", autoReplyOffUntil),
+		)
 		return
 	}
 
@@ -118,12 +141,13 @@ func (h *Handler) processWebhook(
 		}
 
 		go WaitForEvaluation(
-			h.db,
+			h.db, &h.webhookSecret, &h.slackWebhookUrl,
 			&AiEvaluationParam{
 				ConversationID:      payload.ConversationUID,
 				ConversationVersion: state.ConversationVersion,
 				PendingMessageID:    payload.UID,
 				ContactId:           payload.ContactUID,
+				Text:                payload.Text,
 			},
 		)
 	}
@@ -166,12 +190,52 @@ func (h *Handler) processWebhook(
 	}
 }
 
-func WaitForEvaluation(db *store.DB, params *AiEvaluationParam) {
+func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, params *AiEvaluationParam) {
 	logger.Log.Info("Starting AI evaluation cooldown",
 		zap.String("conversation_id", params.ConversationID))
 
 	// Cooldown
 	time.Sleep(10 * time.Second)
+	// === Human Intervention / Slack Escalation Trigger ===
+	// Moving this here allows us to send the actual generated text to Slack!
+	humanInterventionNeeded := true
+	escalationReason := "Client has flagged serious conditions requiring clinical oversight."
+
+	if humanInterventionNeeded {
+		// 1. Safely fetch client details using the already-existing *string pointers
+		clientDetails, err := utils.GetClientDetail(webhookSecret, &params.ContactId)
+		if err != nil {
+			logger.Log.Error("failed to fetch client details for slack alert", zap.Error(err))
+		} else {
+			fetchedClient := clientDetails.Data.Client
+
+			// 2. Build the configuration payload
+			slackConfig := utils.SlackClient{
+				WebhookURL: *whUrl,         // Dereference *string to get the raw string URL
+				Text:       params.Text,    // Pass the generated text draft we just got from AI
+				Client:     &fetchedClient, // Pass the address of the ClientInfo struct
+			}
+
+			// 3. Fire the custom block kit formatter function we built
+			err = db.GetGorm().
+				Where("conversation_id = ?", params.ConversationID).
+				Updates(map[string]interface{}{
+					"has_escalated":        true,
+					"auto_reply_off_until": time.Now().Add(48 * time.Hour),
+					"conversation_version": gorm.Expr("conversation_version + 1"),
+				}).Error
+
+			if err != nil {
+				logger.Log.Error(
+					"failed to update escalation state",
+					zap.Error(err),
+				)
+				return
+			}
+			utils.SendMessageToSlack(slackConfig, params.ContactId, escalationReason)
+		}
+		return
+	}
 
 	for attempt := 0; attempt < 3; attempt++ { // retry on transient DB issues
 		state, err := db.GetConversationByID(params.ConversationID)
@@ -208,8 +272,12 @@ func WaitForEvaluation(db *store.DB, params *AiEvaluationParam) {
 		break
 	}
 
-	// Simulate / Call real AI
+	// Call real AI (Note: updated arguments to match our dynamic smart reply function)
 	reply_text, err := ai.GetSmartReplyEmail(params.ConversationID, params.ContactId)
+	if err != nil {
+		logger.Log.Error("failed to generate smart reply", zap.Error(err))
+		return
+	}
 	generatedReply := reply_text
 
 	// === Final validation before sending ===
@@ -220,11 +288,10 @@ func WaitForEvaluation(db *store.DB, params *AiEvaluationParam) {
 		state.LastMessageID != params.PendingMessageID {
 
 		logger.Log.Info("state changed before sending, aborting")
-		// Optionally reset AIReplyGenerating
 		return
 	}
 
-	// Send message
+	// Send message via API
 	replied, err := utils.CreateMessage(params.ContactId, generatedReply)
 	if err != nil {
 		logger.Log.Error("failed to send AI reply", zap.Error(err))
@@ -237,8 +304,7 @@ func WaitForEvaluation(db *store.DB, params *AiEvaluationParam) {
 	state.AIReplyPending = false
 	state.AIReplyGenerating = false
 	state.ConversationVersion++
-	state.LastMessageID = replied // important!
-	// Optionally reset HumanActive if you want AI to take over again after replying
+	state.LastMessageID = replied
 
 	if err := db.SaveConversation(state); err != nil {
 		logger.Log.Error("failed to update conversation after AI reply", zap.Error(err))

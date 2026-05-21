@@ -1,3 +1,15 @@
+package utils
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
+)
 
 type SlackPayload struct {
 	Text string `json:"text"`

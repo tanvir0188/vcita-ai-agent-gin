@@ -41,6 +41,10 @@ type Conversation struct {
 	AIReplyPending    bool `gorm:"default:false;index"`
 	AIReplyGenerating bool `gorm:"default:false"`
 
+	HasEscalated bool `gorm:"default:false"`
+
+	AutoReplyOffUntil time.Time
+
 	PendingMessageID string
 }
 

@@ -48,4 +48,5 @@ type AiEvaluationParam struct {
 	ConversationVersion int64
 	PendingMessageID    string
 	ContactId           string
+	Text                string
 }
