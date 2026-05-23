@@ -18,10 +18,10 @@ type ClientDetailData struct {
 }
 
 type ClientInfo struct {
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Email       string `json:"email"`
-	MobilePhone string `json:"mobile_phone"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	Email         string `json:"email"`
+	MobilePhone   string `json:"mobile_phone"`
 }
 
 func GetClientDetail(webhookSecret *string, contactId *string) (GetClientDetailResponse, error) {

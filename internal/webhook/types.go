@@ -50,4 +50,5 @@ type AiEvaluationParam struct {
 	ContactId           string
 	Text                string
 	AutoReplyOffUntil   time.Time
+	AssignedStaffEmail  string
 }

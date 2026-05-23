@@ -50,7 +50,7 @@ type SlackClient struct {
 }
 
 // SendMessageToSlack sends a beautifully formatted Block Kit layout to Slack
-func SendMessageToSlack(client SlackClient, contactID string, reasoning string) {
+func SendMessageToSlack(client SlackClient, assignedStaffEmail string, contactID string, reasoning string) {
 	if client.Client == nil {
 		logger.Log.Error("SlackClient missing client info dataset")
 		return
@@ -75,6 +75,10 @@ func SendMessageToSlack(client SlackClient, contactID string, reasoning string) 
 			{
 				Type: "section",
 				Fields: []SlackText{
+					{
+						Type: "mrkdwn",
+						Text: fmt.Sprintf("*Assigned staff email:*\n%s", assignedStaffEmail),
+					},
 					{
 						Type: "mrkdwn",
 						Text: fmt.Sprintf("*Client Name:*\n%s %s", client.Client.FirstName, client.Client.LastName),
@@ -110,7 +114,7 @@ func SendMessageToSlack(client SlackClient, contactID string, reasoning string) 
 				Type: "section",
 				Text: &SlackText{
 					Type: "mrkdwn",
-					Text: fmt.Sprintf("*Suggested Message Content:*\n_%s_", client.Text),
+					Text: fmt.Sprintf("*Message content:*\n_%s_", client.Text),
 				},
 			},
 			// Functional Action Elements (Interactive Buttons)

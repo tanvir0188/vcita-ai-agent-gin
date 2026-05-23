@@ -17,6 +17,7 @@ import (
 type Handler struct {
 	webhookSecret   string
 	slackWebhookUrl string
+	openaiKey       string
 	db              *store.DB
 
 	auditor *audit.Logger
@@ -24,11 +25,12 @@ type Handler struct {
 }
 
 // New constructs a Handler with all its dependencies.
-func New(secret string, db *store.DB, slackWebhookUrl string, auditor *audit.Logger, log *zap.Logger) *Handler {
+func New(secret string, db *store.DB, slackWebhookUrl string, openaiKey string, auditor *audit.Logger, log *zap.Logger) *Handler {
 	return &Handler{
 		webhookSecret:   secret,
 		db:              db,
 		slackWebhookUrl: slackWebhookUrl,
+		openaiKey:       openaiKey,
 
 		auditor: auditor,
 		log:     log,

@@ -15,4 +15,3 @@ type GetClientDetailParams struct {
 	webhookSecret string
 	contactId     string
 }
-

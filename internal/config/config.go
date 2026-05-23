@@ -40,6 +40,7 @@ type Config struct {
 	SMTPPassword string
 	SMTPFrom     string
 	AlertEmailTo string
+	OpenAPIKey   string
 
 	// AI Service (internal microservice stub)
 	AIServiceURL   string
@@ -77,6 +78,7 @@ func Load() (*Config, error) {
 		"ALERT_EMAIL_TO":            &cfg.AlertEmailTo,
 		"AI_SERVICE_URL":            &cfg.AIServiceURL,
 		"AI_SERVICE_TOKEN":          &cfg.AIServiceToken,
+		"OPEN_AI_KEY":               &cfg.OpenAPIKey,
 		"AUDIT_LOG_PATH":            &cfg.AuditLogPath,
 		"SLACK_MESSAGE_WEBHOOK_URL": &cfg.SlackMessageWebhookUrl,
 	}

@@ -16,7 +16,8 @@ type Message struct {
 	ConversationUID string `json:"conversation_uid"`
 
 	Staff struct {
-		Uid string `json:"uid"`
+		Uid   string `json:"uid"`
+		Email string `json:"email"`
 	} `json:"staff"`
 
 	WasRead   bool   `json:"was_read"`

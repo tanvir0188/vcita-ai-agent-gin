@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
@@ -143,6 +145,7 @@ func (h *Handler) processWebhook(
 				PendingMessageID:    payload.UID,
 				ContactId:           payload.ContactUID,
 				Text:                payload.Text,
+				AssignedStaffEmail:  latestMessage.Staff.Email,
 			},
 		)
 	}
@@ -185,16 +188,46 @@ func (h *Handler) processWebhook(
 	}
 }
 
+type HumanInterventionResponse struct {
+	HumanInterventionNeeded bool   `json:"human_intervention_needed"`
+	EscalationReason        string `json:"escalation_reason"`
+}
+
 func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, params *AiEvaluationParam) {
 	logger.Log.Info("Starting AI evaluation cooldown",
 		zap.String("conversation_id", params.ConversationID))
 
 	// Cooldown
-	time.Sleep(5 * time.Second)
+	result, err := ai.HumanInterventionNeeded(
+		params.Text,
+	)
+
+	if err != nil {
+		logger.Log.Error("openai_error", zap.Error(err))
+	}
 	// === Human Intervention / Slack Escalation Trigger ===
 	// Moving this here allows us to send the actual generated text to Slack!
-	humanInterventionNeeded := true
-	escalationReason := "Client has flagged serious conditions requiring clinical oversight."
+	var parsed HumanInterventionResponse
+	cleaned := strings.TrimSpace(result)
+
+	cleaned = strings.TrimPrefix(cleaned, "```json")
+	cleaned = strings.TrimPrefix(cleaned, "```")
+	cleaned = strings.TrimSuffix(cleaned, "```")
+	cleaned = strings.TrimSpace(cleaned)
+
+	err = json.Unmarshal([]byte(cleaned), &parsed)
+
+	if err != nil {
+		logger.Log.Error(
+			"failed to parse AI response",
+			zap.Error(err),
+			zap.String("raw_response", result),
+		)
+		return
+	}
+
+	humanInterventionNeeded := parsed.HumanInterventionNeeded
+	escalationReason := parsed.EscalationReason
 
 	if humanInterventionNeeded {
 		logger.Log.Warn("Human intervention required - escalating",
@@ -211,6 +244,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 			WebhookURL: *whUrl,         // Dereference *string to get the raw string URL
 			Text:       params.Text,    // Pass the generated text draft we just got from AI
 			Client:     &fetchedClient, // Pass the address of the ClientInfo struct
+
 		}
 
 		// 3. Fire the custom block kit formatter function we built
@@ -219,7 +253,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 			Where("conversation_id = ?", params.ConversationID).
 			Updates(map[string]interface{}{
 				"has_escalated":        true,
-				"auto_reply_off_until": time.Now().Add(48 * time.Hour),
+				"auto_reply_off_until": time.Now().Add(20 * time.Second),
 				"conversation_version": gorm.Expr("conversation_version + 1"),
 			}).Error
 
@@ -230,7 +264,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 			)
 			return
 		}
-		utils.SendMessageToSlack(slackConfig, params.ContactId, escalationReason)
+		utils.SendMessageToSlack(slackConfig, params.AssignedStaffEmail, params.ContactId, escalationReason)
 
 	}
 
