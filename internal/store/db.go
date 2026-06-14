@@ -56,10 +56,8 @@ func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {
 	// Safe to run on every startup — it only adds columns and indexes, never drops.
 	if err := gormDB.AutoMigrate(
 		&Conversation{},
-		&RefillSchedule{},
+
 		&AuditLog{},
-		&Escalation{},
-		&AppointmentSuggestion{},
 	); err != nil {
 		return nil, fmt.Errorf("store: auto-migration failed: %w", err)
 	}

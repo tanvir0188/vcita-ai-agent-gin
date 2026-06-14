@@ -1,5 +1,3 @@
-// Package config loads and validates all runtime configuration from environment variables.
-// No sensitive values are ever hardcoded. All PHI-adjacent secrets are required at startup.
 package config
 
 import (
@@ -11,16 +9,15 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config holds the complete application configuration.
-// All fields are validated during Load(); missing required values cause a fatal error.
 type Config struct {
 	Environment string
+
 	// Server
 	ServerPort  string
 	TLSCertFile string
 	TLSKeyFile  string
 
-	// vcita / inTandem
+	// vcita
 	VcitaAPIBase        string
 	VcitaDirectoryToken string
 	VcitaBusinessToken  string
@@ -30,7 +27,7 @@ type Config struct {
 	DBDriver string
 	DBDSN    string
 
-	// Encryption – 32-byte AES-256 key decoded from hex env var
+	// Encryption
 	PHIEncryptionKey []byte
 
 	// Notifications
@@ -42,7 +39,7 @@ type Config struct {
 	AlertEmailTo string
 	OpenAPIKey   string
 
-	// AI Service (internal microservice stub)
+	// AI Service
 	AIServiceURL   string
 	AIServiceToken string
 
@@ -51,81 +48,101 @@ type Config struct {
 	SlackMessageWebhookUrl string
 }
 
-// Load reads configuration from environment variables (and optionally a .env file).
-// Returns an error if any required variable is absent or invalid.
-func Load() (*Config, error) {
-	// Load .env if present (ignored in production where env vars are injected by systemd/Docker)
+var Envs = initConfig()
+
+func initConfig() Config {
 	_ = godotenv.Load()
-	var Environment string = os.Getenv("ENVIRONMENT")
-	fmt.Print(Environment)
 
-	cfg := &Config{}
+	keyBytes := decodeEncryptionKey()
 
-	// ── Required fields ──────────────────────────────────────────────────────
-	required := map[string]*string{
-		"ENVIRONMENT":               &cfg.Environment,
-		"SERVER_PORT":               &cfg.ServerPort,
-		"VCITA_API_BASE":            &cfg.VcitaAPIBase,
-		"VCITA_DIRECTORY_TOKEN":     &cfg.VcitaDirectoryToken,
-		"VCITA_BUSINESS_TOKEN":      &cfg.VcitaBusinessToken,
-		"VCITA_WEBHOOK_SECRET":      &cfg.VcitaWebhookSecret,
-		"DB_DRIVER":                 &cfg.DBDriver,
-		"DB_DSN":                    &cfg.DBDSN,
-		"SMTP_HOST":                 &cfg.SMTPHost,
-		"SMTP_USER":                 &cfg.SMTPUser,
-		"SMTP_PASSWORD":             &cfg.SMTPPassword,
-		"SMTP_FROM":                 &cfg.SMTPFrom,
-		"ALERT_EMAIL_TO":            &cfg.AlertEmailTo,
-		"AI_SERVICE_URL":            &cfg.AIServiceURL,
-		"AI_SERVICE_TOKEN":          &cfg.AIServiceToken,
-		"OPEN_AI_KEY":               &cfg.OpenAPIKey,
-		"AUDIT_LOG_PATH":            &cfg.AuditLogPath,
-		"SLACK_MESSAGE_WEBHOOK_URL": &cfg.SlackMessageWebhookUrl,
-	}
-	for key, dest := range required {
-		val := os.Getenv(key)
-		if val == "" {
-			return nil, fmt.Errorf("required environment variable %q is not set", key)
-		}
-		*dest = val
-	}
+	cfg := Config{
+		Environment: getEnv("ENVIRONMENT", "local"),
 
-	// TLS cert/key – required only in production (skip if SERVER_PORT == 8080 for local dev)
-	cfg.Environment = os.Getenv("ENVIRONMENT")
-	cfg.SlackMessageWebhookUrl = os.Getenv("SLACK_MESSAGE_WEBHOOK_URL")
+		// Server
+		ServerPort: getEnv("SERVER_PORT", "8080"),
 
-	cfg.TLSCertFile = os.Getenv("SERVER_TLS_CERT_FILE")
-	cfg.TLSKeyFile = os.Getenv("SERVER_TLS_KEY_FILE")
-	if cfg.Environment == "local" {
-		cfg.TLSCertFile = ""
-		cfg.TLSKeyFile = ""
+		// vcita
+		VcitaAPIBase:        mustGetEnv("VCITA_API_BASE"),
+		VcitaDirectoryToken: mustGetEnv("VCITA_DIRECTORY_TOKEN"),
+		VcitaBusinessToken:  mustGetEnv("VCITA_BUSINESS_TOKEN"),
+		VcitaWebhookSecret:  mustGetEnv("VCITA_WEBHOOK_SECRET"),
+
+		// Database
+		DBDriver: mustGetEnv("DB_DRIVER"),
+		DBDSN:    mustGetEnv("DB_DSN"),
+
+		// Encryption
+		PHIEncryptionKey: keyBytes,
+
+		// Notifications
+		SMTPHost:     mustGetEnv("SMTP_HOST"),
+		SMTPPort:     getEnvAsInt("SMTP_PORT", 587),
+		SMTPUser:     mustGetEnv("SMTP_USER"),
+		SMTPPassword: mustGetEnv("SMTP_PASSWORD"),
+		SMTPFrom:     mustGetEnv("SMTP_FROM"),
+		AlertEmailTo: mustGetEnv("ALERT_EMAIL_TO"),
+		OpenAPIKey:   mustGetEnv("OPEN_AI_KEY"),
+
+		// AI Service
+		AIServiceURL:   mustGetEnv("AI_SERVICE_URL"),
+		AIServiceToken: mustGetEnv("AI_SERVICE_TOKEN"),
+
+		// Audit
+		AuditLogPath:           mustGetEnv("AUDIT_LOG_PATH"),
+		SlackMessageWebhookUrl: mustGetEnv("SLACK_MESSAGE_WEBHOOK_URL"),
 	}
 
-	// ── SMTP port ────────────────────────────────────────────────────────────
-	portStr := os.Getenv("SMTP_PORT")
-	if portStr == "" {
-		portStr = "587"
+	if cfg.Environment != "local" {
+		cfg.TLSCertFile = mustGetEnv("SERVER_TLS_CERT_FILE")
+		cfg.TLSKeyFile = mustGetEnv("SERVER_TLS_KEY_FILE")
 	}
-	port, err := strconv.Atoi(portStr)
+
+	return cfg
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func mustGetEnv(key string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		panic(fmt.Sprintf("required environment variable %s is not set", key))
+	}
+	return value
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	intValue, err := strconv.Atoi(value)
 	if err != nil {
-		return nil, fmt.Errorf("SMTP_PORT must be an integer, got %q", portStr)
+		return fallback
 	}
-	cfg.SMTPPort = port
 
-	// ── PHI encryption key ───────────────────────────────────────────────────
-	keyHex := os.Getenv("PHI_ENCRYPTION_KEY")
-	if keyHex == "" {
-		return nil, fmt.Errorf("required environment variable PHI_ENCRYPTION_KEY is not set")
-	}
+	return intValue
+}
+
+func decodeEncryptionKey() []byte {
+	keyHex := mustGetEnv("PHI_ENCRYPTION_KEY")
+
 	keyBytes, err := hex.DecodeString(keyHex)
 	if err != nil {
-		return nil, fmt.Errorf("PHI_ENCRYPTION_KEY must be a valid hex string: %w", err)
+		panic("PHI_ENCRYPTION_KEY must be a valid hex string")
 	}
-	if len(keyBytes) != 32 {
-		return nil, fmt.Errorf("PHI_ENCRYPTION_KEY must decode to exactly 32 bytes (AES-256), got %d", len(keyBytes))
-	}
-	cfg.PHIEncryptionKey = keyBytes
-	fmt.Println("Configuration loaded successfully")
 
-	return cfg, nil
+	if len(keyBytes) != 32 {
+		panic(fmt.Sprintf(
+			"PHI_ENCRYPTION_KEY must decode to exactly 32 bytes, got %d",
+			len(keyBytes),
+		))
+	}
+
+	return keyBytes
 }

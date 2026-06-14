@@ -6,3 +6,4 @@ logs/
 *.db-wal
 vcita-agent
 bin/
+main
