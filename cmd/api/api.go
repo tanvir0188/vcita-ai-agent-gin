@@ -13,9 +13,11 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/gin-gonic/gin"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
+	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
 )
 
 type APIServer struct {
@@ -38,8 +40,67 @@ func NewAPIServer(
 		log:     log,
 	}
 }
+
+func (s *APIServer) setupRouter() *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+
+	r := gin.New()
+
+	r.Use(ZapLogger(s.log))
+	r.Use(gin.Recovery())
+	r.Use(securityHeaders())
+
+	api := r.Group("/api/v1")
+
+	webhookHandler := webhook.New(
+		s.cfg.VcitaWebhookSecret,
+		s.db,
+		s.cfg.SlackMessageWebhookUrl,
+		s.cfg.OpenAPIKey,
+		s.auditor,
+		s.log,
+	)
+
+	conversationHandler := webhook.NewConversation(
+		s.cfg.VcitaWebhookSecret,
+		s.db,
+		s.auditor,
+		s.log,
+	)
+
+	api.POST("/webhook", webhookHandler.ConversationCreateHandle)
+	api.POST("/webhook/conversation-read",
+		conversationHandler.ConversationReadHandle)
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
+
+	return r
+}
+
 func (s *APIServer) Run() error {
 	router := s.setupRouter()
+	s.log.Info("====================================")
+	s.log.Info("vcita-ai-agent started successfully")
+	s.log.Info(
+		"server config",
+		zap.String("port", s.cfg.ServerPort),
+		zap.Bool("tls", s.cfg.TLSCertFile != ""),
+		zap.String("environment", s.cfg.Environment),
+	)
+
+	for _, route := range router.Routes() {
+		s.log.Info(
+			"route",
+			zap.String("method", route.Method),
+			zap.String("path", route.Path),
+		)
+	}
+
+	s.log.Info("====================================")
 
 	srv := &http.Server{
 		Addr:         ":" + s.cfg.ServerPort,

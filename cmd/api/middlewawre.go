@@ -1,48 +1,35 @@
 package api
 
 import (
-	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
+	"go.uber.org/zap"
 )
 
-func (s *APIServer) setupRouter() *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
+func ZapLogger(log *zap.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
 
-	r := gin.New()
+		c.Next()
 
-	r.Use(ZapLogger(s.log))
-	r.Use(gin.Recovery())
-	r.Use(securityHeaders())
+		log.Info(
+			"http_request",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Int("status", c.Writer.Status()),
+			zap.Duration("latency", time.Since(start)),
+			zap.String("client_ip", c.ClientIP()),
+		)
+	}
+}
 
-	api := r.Group("/api/v1")
+func securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
-	webhookHandler := webhook.New(
-		s.cfg.VcitaWebhookSecret,
-		s.db,
-		s.cfg.SlackMessageWebhookUrl,
-		s.cfg.OpenAPIKey,
-		s.auditor,
-		s.log,
-	)
-
-	conversationHandler := webhook.NewConversation(
-		s.cfg.VcitaWebhookSecret,
-		s.db,
-		s.auditor,
-		s.log,
-	)
-
-	api.POST("/webhook", webhookHandler.ConversationCreateHandle)
-	api.POST("/webhook/conversation-read",
-		conversationHandler.ConversationReadHandle)
-
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
-		})
-	})
-
-	return r
+		c.Next()
+	}
 }
