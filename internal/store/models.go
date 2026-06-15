@@ -19,17 +19,16 @@ import (
 
 type User struct {
 	gorm.Model
-	ID          uint   `gorm:"primaryKey"`
-	StaffUID    string `gorm:"not null;index:idx_staff_uid,unique;size:255"`
+	StaffUID    string `gorm:"uniqueIndex;size:255"`
 	FullName    string `gorm:"size:255"`
-	Email       string `gorm:"uniqueIndex;not null;size:255" binding:"required,email"`
-	PhoneNumber string `gorm:"size:20;"`
+	Email       string `gorm:"uniqueIndex;size:255"`
+	PhoneNumber string `gorm:"size:20"`
 	Password    string `gorm:"not null"`
 
 	IsActive   bool `gorm:"default:false"`
 	IsVerified bool `gorm:"default:false"`
 
-	OtpCode      string `gorm:"size:6;"`
+	OtpCode      string
 	OtpExpiresAt time.Time
 }
 
