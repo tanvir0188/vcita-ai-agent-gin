@@ -27,6 +27,7 @@ type User struct {
 
 	IsActive   bool `gorm:"default:false"`
 	IsVerified bool `gorm:"default:false"`
+	IsAdmin    bool `gorm:"default:false"`
 
 	OtpCode      string
 	OtpExpiresAt time.Time

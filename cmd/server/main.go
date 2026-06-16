@@ -63,3 +63,4 @@ func run() error {
 
 	return server.Run()
 }
+
