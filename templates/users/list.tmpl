@@ -1,0 +1,42 @@
+{{ define "content" }}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Users</h5>
+  </div>
+
+  <div class="card-body">
+
+    {{ if .error }}
+      <div class="alert alert-danger">
+        {{ .error }}
+      </div>
+    {{ end }}
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>StaffUID</th>
+          <th>Email ID</th>
+          <th>Full Name</th>
+          <th>Active</th>
+          <th>Verified</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {{ range .users }}
+        <tr>
+          <td>{{ .StaffUID }}</td>
+          <td>{{ .Email }}</td>
+          <td>{{ .FullName }}</td>
+          <td>{{ .IsActive }}</td>
+          <td>{{ .IsVerified }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+
+  </div>
+</div>
+
+{{ end }}

@@ -87,16 +87,15 @@ func (s *Store) ListUsersPage(c *gin.Context) {
 
 	err := s.db.Find(&users).Error
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "users.tmpl", gin.H{
+		c.HTML(http.StatusInternalServerError, "base.tmpl", gin.H{
 			"title": "User List",
 			"error": "Failed to retrieve users",
 		})
 		return
 	}
 
-	c.HTML(http.StatusOK, "users.tmpl", gin.H{
+	c.HTML(http.StatusOK, "base.tmpl", gin.H{
 		"title": "User List",
-
 		"users": users,
 	})
 }
