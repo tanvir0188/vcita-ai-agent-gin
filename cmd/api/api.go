@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/client"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -56,7 +57,9 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	// 	panic(err)
 	// }
 	// templatePath := filepath.Join(execPath, "templates", "*.tmpl")
-	r.LoadHTMLGlob("templates/**/*.tmpl")
+	r.Static("/static", "./static")
+	r.LoadHTMLGlob("templates/*.tmpl")
+	r.LoadHTMLGlob("templates/*/*.tmpl")
 
 	public := r.Group("/")
 
@@ -66,8 +69,12 @@ func (s *APIServer) setupRouter() *gin.Engine {
 		})
 	})
 	admin := r.Group("/admin")
+
 	store := user.NewStore(s.db.GetGorm())
 	user.RegisterRoutes(admin, store)
+
+	clientStore := client.NewStore(s.db.GetGorm())
+	client.ClientRoutes(admin, clientStore)
 
 	api := r.Group("/api/v1")
 

@@ -1,0 +1,43 @@
+{{ define "content" }}
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Conversations</h5>
+  </div>
+
+  <div class="card-body">
+
+    {{ if .error }}
+      <div class="alert alert-danger">
+        {{ .error }}
+      </div>
+    {{ end }}
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Conversation ID</th>
+          <th>Last From</th>
+          <th>Active</th>
+          <th>Escalated</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {{ range .conversations }}
+        <tr>
+          <td>{{ .ID }}</td>
+          <td>{{ .ConversationID }}</td>
+          <td>{{ .LastMessageFrom }}</td>
+          <td>{{ .HumanActive }}</td>
+          <td>{{ .HasEscalated }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+
+  </div>
+</div>
+
+{{ end }}
