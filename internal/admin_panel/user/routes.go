@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/utils"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -24,6 +23,8 @@ func RegisterRoutes(rg *gin.RouterGroup, s *Store) {
 	protected.Use(WithJWTAuth(s))
 
 	protected.GET("/users", s.ListUsersPage)
+	protected.PATCH("/profile", s.HandleProfile)
+	protected.PATCH("/change-password", s.HandleChangePassword)
 
 	//rg.GET("/users/create", ShowCreateUserPage)
 
@@ -45,18 +46,9 @@ func ShowLoginPage(c *gin.Context) {
 func (s *Store) HandleAdminLogin(c *gin.Context) {
 	var payload types.LoginUserPayload
 
-	if err := c.ShouldBindJSON(&payload); err != nil {
+	if err := utils.BindAndValidate(c, &payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
-		})
-		return
-	}
-
-	if err := utils.Validate.Struct(payload); err != nil {
-		validationErrors := err.(validator.ValidationErrors)
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("invalid payload: %v", validationErrors),
 		})
 		return
 	}
@@ -122,19 +114,9 @@ func (s *Store) HandleAdminLogin(c *gin.Context) {
 func (s *Store) HandleRegister(c *gin.Context) {
 	var payload types.RegisterPayload
 
-	if err := c.ShouldBindJSON(&payload); err != nil {
+	if err := utils.BindAndValidate(c, &payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
-		})
-		log.Println(err)
-		return
-	}
-
-	if err := utils.Validate.Struct(&payload); err != nil {
-		validationErrors := err.(validator.ValidationErrors)
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("invalid payload: %v", validationErrors),
 		})
 		return
 	}
@@ -227,5 +209,122 @@ func (s *Store) ListUsersPage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": response,
+	})
+}
+
+func (s *Store) HandleProfile(c *gin.Context) {
+	var payload types.ProfilePayload
+
+	if err := utils.BindAndValidate(c, &payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	user, err := utils.GetUserFromRequest(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	fmt.Println(user.Email)
+	fmt.Println(user.IsAdmin)
+
+	if err := s.db.First(&user, &user.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "user not found",
+		})
+		return
+	}
+
+	updates := map[string]interface{}{}
+
+	if payload.FullName != nil {
+		updates["full_name"] = *payload.FullName
+	}
+	if payload.Email != nil {
+		updates["email"] = *payload.Email
+	}
+	if payload.PhoneNumber != nil {
+		updates["phone_number"] = *payload.PhoneNumber
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "no fields to update",
+		})
+		return
+	}
+
+	if err := s.db.Model(&user).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to update profile",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "profile updated successfully",
+		"data": gin.H{
+			"full_name":    user.FullName,
+			"email":        user.Email,
+			"phone_number": user.PhoneNumber,
+		},
+	})
+}
+
+func (s *Store) HandleChangePassword(c *gin.Context) {
+	var payload types.PasswordPayload
+
+	if err := utils.BindAndValidate(c, &payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	user, err := utils.GetUserFromRequest(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	fmt.Println(user.Email)
+	fmt.Println(user.IsAdmin)
+
+	if err := s.db.First(&user, &user.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "user not found",
+		})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(payload.Password),
+		bcrypt.DefaultCost,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to hash password",
+		})
+		return
+	}
+
+	user.Password = string(hashedPassword)
+
+	if err := s.db.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to update password",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "password changed successfully",
 	})
 }

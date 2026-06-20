@@ -22,7 +22,17 @@ type LoginUserPayload struct {
 type RegisterPayload struct {
 	StaffUID    string `json:"staff_uid" validate:"required"`
 	FullName    string `json:"full_name" validate:"required"`
-	Email       string `json:"email" validate:"required"`
+	Email       string `json:"email" validate:"required, email"`
 	PhoneNumber string `json:"phone_number" validate:"required"`
 	Password    string `json:"password" validate:"required,min=3,max=130"`
+}
+
+type ProfilePayload struct {
+	FullName    *string `json:"full_name" validate:"omitempty"`
+	Email       *string `json:"email" validate:"omitempty,email"`
+	PhoneNumber *string `json:"phone_number" validate:"omitempty"`
+}
+
+type PasswordPayload struct {
+	Password string `json:"password" validate:"required,min=3,max=130"`
 }
