@@ -28,7 +28,9 @@ type Config struct {
 	DBDSN    string
 
 	// Encryption
-	PHIEncryptionKey []byte
+	PHIEncryptionKey       []byte
+	JWTSecret              string
+	JWTExpirationInSeconds int
 
 	// Notifications
 	SMTPHost     string
@@ -72,7 +74,9 @@ func initConfig() Config {
 		DBDSN:    mustGetEnv("DB_DSN"),
 
 		// Encryption
-		PHIEncryptionKey: keyBytes,
+		PHIEncryptionKey:       keyBytes,
+		JWTSecret:              mustGetEnv("JWTSecret"),
+		JWTExpirationInSeconds: getEnvAsInt("JWT_EXPIRATION_IN_SECONDS", 3600*24*7),
 
 		// Notifications
 		SMTPHost:     mustGetEnv("SMTP_HOST"),

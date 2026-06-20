@@ -71,12 +71,13 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	admin := r.Group("/admin")
 
 	store := user.NewStore(s.db.GetGorm())
-	user.RegisterRoutes(admin, store)
 
 	clientStore := client.NewStore(s.db.GetGorm())
 	client.ClientRoutes(admin, clientStore)
 
 	api := r.Group("/api/v1")
+	
+	user.RegisterRoutes(api, store)
 
 	webhookHandler := webhook.New(
 		s.cfg.VcitaWebhookSecret,

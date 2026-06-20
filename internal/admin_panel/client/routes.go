@@ -1,6 +1,7 @@
 package client
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ func ClientRoutes(rg *gin.RouterGroup, s *Store) {
 
 func (s *Store) ListConversation(c *gin.Context) {
 	var conversations []store.Conversation
+	log.Printf("ListConversation called")
 
 	if err := s.db.Find(&conversations).Error; err != nil {
 		c.HTML(http.StatusInternalServerError, "base.tmpl", gin.H{

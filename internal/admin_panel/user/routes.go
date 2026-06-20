@@ -1,20 +1,29 @@
 package user
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/utils"
+	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
+	"github.com/tanvir0188/vcita-ai-agent/internal/types"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func RegisterRoutes(rg *gin.RouterGroup, s *Store) {
 	rg.GET("/login", ShowLoginPage)
 	rg.POST("/login", s.HandleAdminLogin)
+	rg.POST("/register", s.HandleRegister)
 
-	rg.GET("/users", s.ListUsersPage)
+	protected := rg.Group("/")
+	protected.Use(WithJWTAuth(*s))
+
+	protected.GET("/users", s.ListUsersPage)
 
 	//rg.GET("/users/create", ShowCreateUserPage)
 
@@ -34,68 +43,189 @@ func ShowLoginPage(c *gin.Context) {
 }
 
 func (s *Store) HandleAdminLogin(c *gin.Context) {
-	email := c.PostForm("email")
-	password := c.PostForm("password")
+	var payload types.LoginUserPayload
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("invalid payload: %v", validationErrors),
+		})
+		return
+	}
 
 	var user store.User
 
-	err := s.db.Where("email = ?", email).First(&user).Error
+	err := s.db.
+		Where("email = ?", payload.Email).
+		First(&user).
+		Error
+
 	if err != nil {
-		c.HTML(http.StatusUnauthorized, "login.tmpl", gin.H{
-			"title": "Admin Login",
-			"error": "Invalid credentials",
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "No user found with the given email",
 		})
-		log.Printf("admin login failed for email %s: %v", email, err)
 		return
 	}
 
 	if !user.IsActive {
-		c.HTML(http.StatusUnauthorized, "login.tmpl", gin.H{
-			"title": "Admin Login",
-			"error": "Account is inactive",
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "account is inactive",
 		})
 		return
 	}
 
-	if !user.IsAdmin {
-		c.HTML(http.StatusForbidden, "login.tmpl", gin.H{
-			"title": "Admin Login",
-			"error": "Access denied",
-		})
-		return
-	}
+	err = bcrypt.CompareHashAndPassword(
+		[]byte(user.Password),
+		[]byte(payload.Password),
+	)
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		c.HTML(http.StatusUnauthorized, "login.tmpl", gin.H{
-			"title": "Admin Login",
-			"error": "Invalid credentials",
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid password",
 		})
 		return
 	}
 
-	session := sessions.Default(c)
-	session.Set("admin_id", user.ID)
-	session.Set("admin_logged_in", true)
-	session.Save()
+	secret := []byte(config.Envs.JWTSecret)
 
-	c.Redirect(http.StatusFound, "/admin/dashboard")
+	accessToken, err := CreateAccessToken(secret, uint(user.ID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	refreshToken, err := CreateRefreshToken(secret, uint(user.ID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user": gin.H{
+			"email":     user.Email,
+			"full_name": user.FullName,
+			"is_admin":  user.IsAdmin,
+		},
+	})
+}
+
+func (s *Store) HandleRegister(c *gin.Context) {
+	var payload types.RegisterPayload
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		log.Println(err)
+		return
+	}
+
+	if err := utils.Validate.Struct(&payload); err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("invalid payload: %v", validationErrors),
+		})
+		return
+	}
+
+	var existingUser store.User
+
+	err := s.db.
+		Where("email = ?", payload.Email).
+		First(&existingUser).
+		Error
+
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "email already exists",
+		})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(payload.Password),
+		bcrypt.DefaultCost,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to hash password",
+		})
+		return
+	}
+
+	user := store.User{
+		StaffUID:    payload.StaffUID,
+		FullName:    payload.FullName,
+		Email:       payload.Email,
+		PhoneNumber: payload.PhoneNumber,
+		Password:    string(hashedPassword),
+
+		IsActive:   true,
+		IsVerified: true,
+	}
+
+	err = s.db.Create(&user).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to create user",
+		})
+		log.Println(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "user created successfully",
+		"user": gin.H{
+			"id":           user.ID,
+			"staff_uid":    user.StaffUID,
+			"full_name":    user.FullName,
+			"email":        user.Email,
+			"phone_number": user.PhoneNumber,
+			"is_active":    user.IsActive,
+			"is_verified":  user.IsVerified,
+		},
+	})
 }
 
 func (s *Store) ListUsersPage(c *gin.Context) {
 	var users []store.User
 
+	log.Println("ListUsersPage API called")
+
 	err := s.db.Find(&users).Error
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "base.tmpl", gin.H{
-			"title": "User List",
-			"error": "Failed to retrieve users",
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to retrieve users",
 		})
 		return
 	}
+	var response []types.UserListResponse
+	for _, u := range users {
+		response = append(response, types.UserListResponse{
+			ID:          u.ID,
+			StaffUID:    u.StaffUID,
+			FullName:    u.FullName,
+			Email:       u.Email,
+			PhoneNumber: u.PhoneNumber,
+			IsActive:    u.IsActive,
+			IsVerified:  u.IsVerified,
+			IsAdmin:     u.IsAdmin,
+			CreatedAt:   u.CreatedAt,
+		})
+	}
 
-	c.HTML(http.StatusOK, "base.tmpl", gin.H{
-		"title": "User List",
-		"users": users,
+	c.JSON(http.StatusOK, gin.H{
+		"data": response,
 	})
 }
