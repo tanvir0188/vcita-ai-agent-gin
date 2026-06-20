@@ -17,7 +17,7 @@ import (
 
 const UserKey = "user_id"
 
-func WithJWTAuth(s Store) gin.HandlerFunc {
+func WithJWTAuth(s *Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := utils.GetTokenFromRequest(c)
 
@@ -95,7 +95,7 @@ func CreateAccessToken(secret []byte, userID uint) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  strconv.Itoa(int(userID)),
 		"type": "access",
-		"exp":  time.Now().Add(15 * time.Minute).Unix(),
+		"exp":  time.Now().Add(15 * 24 * time.Hour).Unix(),
 		"iat":  time.Now().Unix(),
 	})
 

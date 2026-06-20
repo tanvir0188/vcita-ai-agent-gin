@@ -21,7 +21,7 @@ func RegisterRoutes(rg *gin.RouterGroup, s *Store) {
 	rg.POST("/register", s.HandleRegister)
 
 	protected := rg.Group("/")
-	protected.Use(WithJWTAuth(*s))
+	protected.Use(WithJWTAuth(s))
 
 	protected.GET("/users", s.ListUsersPage)
 

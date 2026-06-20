@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/client"
+	client "github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -68,16 +68,15 @@ func (s *APIServer) setupRouter() *gin.Engine {
 			"title": "Main website",
 		})
 	})
-	admin := r.Group("/admin")
 
 	store := user.NewStore(s.db.GetGorm())
 
 	clientStore := client.NewStore(s.db.GetGorm())
-	client.ClientRoutes(admin, clientStore)
 
 	api := r.Group("/api/v1")
-	
+
 	user.RegisterRoutes(api, store)
+	client.ClientRoutes(api, clientStore)
 
 	webhookHandler := webhook.New(
 		s.cfg.VcitaWebhookSecret,
