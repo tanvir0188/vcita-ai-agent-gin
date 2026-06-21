@@ -1,7 +1,7 @@
 package client
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,9 +57,38 @@ func (s *Store) toggleAutoReply(c *gin.Context) {
 func (s *Store) ListConversation(c *gin.Context) {
 	var conversations []store.Conversation
 
-	log.Println("ListConversation called")
+	page := 1
+	limit := 10
 
-	if err := s.db.Find(&conversations).Error; err != nil {
+	if p := c.Query("page"); p != "" {
+		fmt.Sscanf(p, "%d", &page)
+	}
+	if l := c.Query("limit"); l != "" {
+		fmt.Sscanf(l, "%d", &limit)
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	var total int64
+
+	if err := s.db.Model(&store.Conversation{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to count conversations",
+		})
+		return
+	}
+
+	if err := s.db.
+		Limit(limit).
+		Offset(offset).
+		Find(&conversations).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to retrieve conversations",
 		})
@@ -68,5 +97,11 @@ func (s *Store) ListConversation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": conversations,
+		"meta": gin.H{
+			"page":  page,
+			"limit": limit,
+			"total": total,
+			"pages": (total + int64(limit) - 1) / int64(limit),
+		},
 	})
 }

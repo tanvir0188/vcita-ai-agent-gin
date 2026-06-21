@@ -24,6 +24,7 @@ func RegisterRoutes(rg *gin.RouterGroup, s *Store) {
 
 	protected.GET("/users", s.ListUsersPage)
 	protected.PATCH("/profile", s.HandleProfile)
+	protected.GET("/profile", s.HandleGetProfile)
 	protected.PATCH("/change-password", s.HandleChangePassword)
 
 	//rg.GET("/users/create", ShowCreateUserPage)
@@ -272,6 +273,33 @@ func (s *Store) HandleProfile(c *gin.Context) {
 			"full_name":    user.FullName,
 			"email":        user.Email,
 			"phone_number": user.PhoneNumber,
+		},
+	})
+}
+
+func (s *Store) HandleGetProfile(c *gin.Context) {
+	user, err := utils.GetUserFromRequest(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if err := s.db.First(&user, &user.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "user not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"full_name":    user.FullName,
+			"email":        user.Email,
+			"phone_number": user.PhoneNumber,
+			"is_admin":     user.IsAdmin,
+			"id":           user.ID,
 		},
 	})
 }

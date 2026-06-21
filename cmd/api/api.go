@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	client "github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
@@ -51,6 +52,11 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	r.Use(ZapLogger(s.log))
 	r.Use(gin.Recovery())
 	r.Use(securityHeaders())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:5173"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
+	}))
 	//get run time path for loading templates
 	// execPath, err := os.Getwd()
 	// if err != nil {
