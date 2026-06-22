@@ -54,7 +54,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	r.Use(securityHeaders())
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 	}))
 	//get run time path for loading templates
