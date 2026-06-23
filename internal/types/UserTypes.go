@@ -20,11 +20,8 @@ type LoginUserPayload struct {
 }
 
 type RegisterPayload struct {
-	StaffUID    string `json:"staff_uid" validate:"required"`
-	FullName    string `json:"full_name" validate:"required"`
-	Email       string `json:"email" validate:"required, email"`
-	PhoneNumber string `json:"phone_number" validate:"required"`
-	Password    string `json:"password" validate:"required,min=3,max=130"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=3,max=130"`
 }
 
 type ProfilePayload struct {
@@ -35,4 +32,22 @@ type ProfilePayload struct {
 
 type PasswordPayload struct {
 	Password string `json:"password" validate:"required,min=3,max=130"`
+}
+
+type GetStaffResponse struct {
+	Status string       `json:"status"`
+	Data   GetStaffData `json:"data"`
+}
+
+type GetStaffData struct {
+	Staff []Staff `json:"staff"`
+}
+
+type Staff struct {
+	ID           string `json:"id"`
+	DisplayName  string `json:"display_name"`
+	Email        string `json:"email"`
+	Active       bool   `json:"active"`
+	Deleted      bool   `json:"deleted"`
+	MobileNumber string `json:"mobile_number"`
 }

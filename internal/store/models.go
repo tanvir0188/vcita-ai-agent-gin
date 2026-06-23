@@ -38,6 +38,7 @@ type Conversation struct {
 	ID uint `gorm:"primaryKey"`
 
 	ConversationID string `gorm:"uniqueIndex;not null"`
+	AssignedStaffID string 
 
 	LastMessageID         string
 	LastCustomerMessageID string
@@ -63,6 +64,17 @@ type Conversation struct {
 	AutoReplyOffUntil *time.Time
 
 	PendingMessageID string
+}
+
+type MedicationReminderHistory struct{
+	gorm.Model
+
+	ClientId string 
+	NoteId string
+	ExpectedRefillDate time.Time
+	ReminderDate time.Time
+	SentAt time.Time
+
 }
 
 // RefillSchedule holds a medication refill reminder for one patient.

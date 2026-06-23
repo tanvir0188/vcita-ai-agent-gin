@@ -101,7 +101,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	)
 
 	api.POST("/webhook", webhookHandler.ConversationCreateHandle)
-	api.POST("/webhook/conversation-read",
+	r.POST("/webhook/conversation-read",
 		conversationHandler.ConversationReadHandle)
 
 	r.GET("/health", func(c *gin.Context) {

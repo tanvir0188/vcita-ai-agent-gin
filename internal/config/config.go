@@ -41,6 +41,9 @@ type Config struct {
 	AlertEmailTo string
 	OpenAPIKey   string
 
+	//
+	BusinessUid string
+
 	// AI Service
 	AIServiceURL   string
 	AIServiceToken string
@@ -68,6 +71,7 @@ func initConfig() Config {
 		VcitaDirectoryToken: mustGetEnv("VCITA_DIRECTORY_TOKEN"),
 		VcitaBusinessToken:  mustGetEnv("VCITA_BUSINESS_TOKEN"),
 		VcitaWebhookSecret:  mustGetEnv("VCITA_WEBHOOK_SECRET"),
+		BusinessUid:         mustGetEnv("BUSINESS_UID"),
 
 		// Database
 		DBDriver: mustGetEnv("DB_DRIVER"),

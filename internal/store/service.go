@@ -12,6 +12,7 @@ type CustomerMessageCreateParams struct {
 	LastMessageID         string
 	LastCustomerMessageID string
 	LastMessageFrom       string
+	AssignedStaffID       string
 
 	LastCustomerMessageAt time.Time
 
@@ -27,6 +28,7 @@ func (s *DB) CreateOrUpdateConversationOnCustomerMessageCreate(
 
 	updates := map[string]interface{}{
 		"last_message_id":          params.LastMessageID,
+		"assigned_staff_id":        params.AssignedStaffID,
 		"last_customer_message_id": params.LastCustomerMessageID,
 		"last_message_from":        params.LastMessageFrom,
 		"last_customer_message_at": params.LastCustomerMessageAt,
@@ -50,6 +52,7 @@ type StaffMessageCreateParams struct {
 	LastMessageID      string
 	LastStaffMessageID string
 	LastMessageFrom    string
+	AssignedStaffID    string
 
 	LastStaffMessageAt time.Time
 
@@ -71,6 +74,7 @@ func (s *DB) CreateOrUpdateConversationOnStaffMessage(
 
 	updates := map[string]interface{}{
 		"last_message_id":       params.LastMessageID,
+		"assigned_staff_id":     params.AssignedStaffID,
 		"last_staff_message_id": params.LastStaffMessageID,
 		"last_message_from":     params.LastMessageFrom,
 		"last_staff_message_at": params.LastStaffMessageAt,
@@ -81,6 +85,7 @@ func (s *DB) CreateOrUpdateConversationOnStaffMessage(
 		"ai_reply_generating":   params.AIReplyGenerating,
 		"pending_message_id":    params.PendingMessageID,
 	}
+	fmt.Print(updates)
 
 	return s.gorm.
 		Model(&Conversation{}).

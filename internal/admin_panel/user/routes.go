@@ -135,6 +135,13 @@ func (s *Store) HandleRegister(c *gin.Context) {
 		})
 		return
 	}
+	staff, err := GetStaffByEmail(payload.Email)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "You are not authorized to register in this admin panel",
+		})
+		return
+	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(payload.Password),
@@ -146,12 +153,14 @@ func (s *Store) HandleRegister(c *gin.Context) {
 		})
 		return
 	}
+	fullName := staff.DisplayName
+	phoneNumber := staff.MobileNumber
 
 	user := store.User{
-		StaffUID:    payload.StaffUID,
-		FullName:    payload.FullName,
+		StaffUID:    staff.ID,
+		FullName:    fullName,
 		Email:       payload.Email,
-		PhoneNumber: payload.PhoneNumber,
+		PhoneNumber: phoneNumber,
 		Password:    string(hashedPassword),
 
 		IsActive:   true,
@@ -194,6 +203,7 @@ func (s *Store) ListUsersPage(c *gin.Context) {
 		return
 	}
 	var response []types.UserListResponse
+
 	for _, u := range users {
 		response = append(response, types.UserListResponse{
 			ID:          u.ID,
@@ -268,7 +278,7 @@ func (s *Store) HandleProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "profile updated successfully",
+		"message": "Profile updated successfully",
 		"data": gin.H{
 			"full_name":    user.FullName,
 			"email":        user.Email,
