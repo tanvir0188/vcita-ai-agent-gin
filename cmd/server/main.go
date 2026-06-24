@@ -1,19 +1,42 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/tanvir0188/vcita-ai-agent/cmd/api"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
 	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
+	medicationreminder "github.com/tanvir0188/vcita-ai-agent/internal/medicationReminder"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 )
 
 func main() {
+	debug.SetMemoryLimit(800 * 1024 * 1024)
 	fmt.Println("main started")
+
+	clients, err := medicationreminder.GetClientsWithCurrentMedications()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get clients: %v\n", err)
+		os.Exit(1)
+	}
+
+	data, err := json.MarshalIndent(clients, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to marshal clients: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := os.WriteFile("data.json", data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write data.json: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("saved %d clients to data.json\n", len(clients))
 
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
@@ -63,4 +86,3 @@ func run() error {
 
 	return server.Run()
 }
-

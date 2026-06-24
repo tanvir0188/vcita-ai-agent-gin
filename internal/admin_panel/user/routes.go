@@ -193,7 +193,14 @@ func (s *Store) HandleRegister(c *gin.Context) {
 func (s *Store) ListUsersPage(c *gin.Context) {
 	var users []store.User
 
-	log.Println("ListUsersPage API called")
+	// clients, err := medicationreminder.GetClientList()
+	// fmt.Println("client count: ", clients.Counts.Client)
+	// for _, client := range clients.TopHits.Client {
+	// 	fmt.Println(client.MatterUid)
+	// 	fmt.Println(client.StaffIds)	
+	// }
+	// note, err := medicationreminder.GetClientNote("ga4w9l084uizppxx")
+	// log.Printf("note detail:%v", note)
 
 	err := s.db.Find(&users).Error
 	if err != nil {
@@ -202,6 +209,7 @@ func (s *Store) ListUsersPage(c *gin.Context) {
 		})
 		return
 	}
+
 	var response []types.UserListResponse
 
 	for _, u := range users {

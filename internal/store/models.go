@@ -66,16 +66,25 @@ type Conversation struct {
 	PendingMessageID string
 }
 
-type MedicationReminderHistory struct{
-	gorm.Model
+type ClientSyncState struct {
+	ID uint `gorm:"primaryKey"`
 
-	ClientId string 
-	NoteId string
-	ExpectedRefillDate time.Time
-	ReminderDate time.Time
-	SentAt time.Time
+	MatterUID string `gorm:"size:100;uniqueIndex;not null"`
 
+	HasMedications bool `gorm:"default:false"`
+
+	MedicationNoteUID  string `gorm:"size:100"`	
+
+	LastAICheckAt *time.Time
+
+	LastReminderSentAt *time.Time
+	
+	PartialReminderNeeded bool
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
+
 
 // RefillSchedule holds a medication refill reminder for one patient.
 

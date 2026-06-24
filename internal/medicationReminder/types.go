@@ -26,3 +26,33 @@ type TrimmedNotesResponse struct {
 	MatterUID    string        `json:"matter_uid"`
 	TrimmedNotes []TrimmedNote `json:"trimmed_notes"`
 }
+
+type ClientNoteResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		UID     string `json:"uid"`
+		Content string `json:"content"`
+	} `json:"data"`
+}
+
+type Client struct {
+	StaffIds  int    `json:"staff_ids"`
+	Notes     string `json:"notes"`
+	MatterUid string `json:"matter_uid"`
+}
+
+type FilteredClient struct {
+	StaffIds int    `json:"staff_ids"`
+	Notes    string `json:"notes"`
+	MatterUid string `json:"matter_uid"`
+}
+
+type ClientListResponse struct {
+	Counts struct {
+		Client int `json:"client"`
+	} `json:"counts"`
+
+	TopHits struct {
+		Client []Client `json:"client"`
+	} `json:"top_hits"`
+}

@@ -1,9 +1,7 @@
 package medicationreminder
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -15,51 +13,59 @@ func GetClientNotes(matterUID string) (*TrimmedNotesResponse, error) {
 		matterUID,
 	)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	accessToken := "Bearer " + config.Envs.VcitaDirectoryToken
-
-	req.Header.Set("accept", "application/json")
-	req.Header.Set("authorization", accessToken)
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("api error: %s", string(body))
+	headers := map[string]string{
+		"accept":        "application/json",
+		"authorization": "Bearer " + config.Envs.VcitaDirectoryToken,
 	}
 
 	var response ClientNotesResponse
 
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+	if err := DoRequest(http.MethodGet, url, headers, &response); err != nil {
 		return nil, err
 	}
 
-	return ConvertedNoteList(&response)
+	return ConvertedNoteList(&response, &matterUID)
 }
 
-func ConvertedNoteList(response *ClientNotesResponse) (*TrimmedNotesResponse, error) {
-	if len(response.Data.ClientNotes) == 0 {
-		return nil, fmt.Errorf("no notes found")
+func GetClientNote(noteUID string) (*TrimmedNote, error) {
+	url := fmt.Sprintf(
+		"https://api.vcita.biz/v3/clients/client_notes/%s",
+		noteUID,
+	)
+
+	headers := map[string]string{
+		"accept":        "application/json",
+		"authorization": "Bearer " + config.Envs.VcitaDirectoryToken,
 	}
 
-	result := &TrimmedNotesResponse{
-		MatterUID: response.Data.ClientNotes[0].MatterUID,
+	var response ClientNoteResponse
+
+	if err := DoRequest(http.MethodGet, url, headers, &response); err != nil {
+		return nil, err
 	}
 
-	for _, note := range response.Data.ClientNotes {
-		result.TrimmedNotes = append(result.TrimmedNotes, TrimmedNote{
-			NoteID:  note.UID,
-			Content: ConvertHtmlToMarkDown(note.Content),
-		})
+	return &TrimmedNote{
+		NoteID:  response.Data.UID,
+		Content: ConvertHtmlToMarkDown(response.Data.Content),
+	}, nil
+}
+
+func GetClientList(page int) (*ClientListResponse, error) {
+	url := fmt.Sprintf(
+		"https://api.vcita.biz/v2/search?entity=client&entities=client&page=%d&per_page=100&search_filter[tags_relation]=or",
+		page,
+	)
+
+	headers := map[string]string{
+		"accept":        "application/json",
+		"authorization": "Bearer " + config.Envs.VcitaDirectoryToken,
 	}
 
-	return result, nil
+	var response ClientListResponse
+
+	if err := DoRequest(http.MethodGet, url, headers, &response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
