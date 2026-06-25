@@ -11,11 +11,64 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
 )
 
+// Store is the interface that appointment (and other) packages use.
+// Using an interface keeps those packages decoupled from the concrete *DB
+// and makes unit-testing with mocks straightforward.
+type Store interface {
+	UpsertAppointment(appt *Appointment) error
+	SetAutoReplyOff(conversationID string) error
+	SetAutoReplyOn(conversationID string) error
+}
+
 // DB wraps the GORM database and the PHI encryptor.
 // All store methods live on this struct so encryption is always available.
 type DB struct {
 	gorm *gorm.DB
 	enc  *crypto.Encryptor
+}
+
+// Ensure *DB satisfies the Store interface at compile time.
+var _ Store = (*DB)(nil)
+
+// UpsertAppointment inserts or updates an appointment record keyed on
+// (ConversationID, ServiceID). A record is created if none exists;
+// otherwise Status, StartTime, EndTime and VcitaAppointmentID are updated.
+func (db *DB) UpsertAppointment(appt *Appointment) error {
+	return db.gorm.
+		Where(Appointment{
+			ConversationID: appt.ConversationID,
+			ServiceID:      appt.ServiceID,
+		}).
+		Assign(Appointment{
+			ContactID:          appt.ContactID,
+			ServiceName:        appt.ServiceName,
+			Status:             appt.Status,
+			StartTime:          appt.StartTime,
+			EndTime:            appt.EndTime,
+			VcitaAppointmentID: appt.VcitaAppointmentID,
+			VcitaClientID:      appt.VcitaClientID,
+		}).
+		FirstOrCreate(appt).
+		Error
+}
+
+// SetAutoReplyOff disables the AI auto-reply for a conversation while
+// appointment scheduling is in progress.
+func (db *DB) SetAutoReplyOff(conversationID string) error {
+	return db.gorm.
+		Model(&Conversation{}).
+		Where("conversation_id = ?", conversationID).
+		Update("auto_reply_off", true).
+		Error
+}
+
+// SetAutoReplyOn re-enables the AI auto-reply after scheduling completes.
+func (db *DB) SetAutoReplyOn(conversationID string) error {
+	return db.gorm.
+		Model(&Conversation{}).
+		Where("conversation_id = ?", conversationID).
+		Update("auto_reply_off", false).
+		Error
 }
 
 func (db *DB) GetGorm() *gorm.DB {
@@ -58,6 +111,7 @@ func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {
 		&Conversation{},
 		&User{},
 		&AuditLog{},
+		&Appointment{},
 	); err != nil {
 		return nil, fmt.Errorf("store: auto-migration failed: %w", err)
 	}

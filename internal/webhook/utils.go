@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
+	"github.com/tanvir0188/vcita-ai-agent/internal/appointment"
 	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
@@ -154,37 +155,39 @@ func (h *Handler) processWebhook(
 	// STAFF MESSAGE
 	if payload.Direction == "business_to_client" {
 
-		err := h.db.
-			CreateOrUpdateConversationOnStaffMessage(
-				store.StaffMessageCreateParams{
-					ConversationID:     payload.ConversationUID,
-					LastMessageID:      payload.UID,
-					LastStaffMessageID: payload.UID,
-					AssignedStaffID:    payload.StaffUid,
-					LastMessageFrom:    "staff",
-					HumanActive:        true,
-					HumanActiveUntil:   time.Now().Add(10 * time.Minute),
-					HumanActiveAt:      payload.CreatedAt,
-					AIReplyPending:     false,
-					AIReplyGenerating:  false,
-					PendingMessageID:   "",
-				},
-			)
-
+		err = h.db.CreateOrUpdateConversationOnStaffMessage(
+			store.StaffMessageCreateParams{
+				ConversationID:     payload.ConversationUID,
+				LastMessageID:      payload.UID,
+				LastStaffMessageID: payload.UID,
+				AssignedStaffID:    payload.StaffUid,
+				LastMessageFrom:    "staff",
+				HumanActive:        true,
+				HumanActiveUntil:   time.Now().Add(10 * time.Minute),
+				HumanActiveAt:      payload.CreatedAt,
+				AIReplyPending:     false,
+				AIReplyGenerating:  false,
+				PendingMessageID:   "",
+			},
+		)
 		if err != nil {
-
-			h.log.Error(
-				"failed to update staff conversation state",
-				zap.Error(err),
-			)
-
+			h.log.Error("failed to update staff conversation state", zap.Error(err))
 			return
 		}
 
-		h.log.Info(
-			"staff conversation updated",
-			zap.String("conversation_uid", payload.ConversationUID),
-		)
+		h.log.Info("staff conversation updated",
+			zap.String("conversation_uid", payload.ConversationUID))
+
+		go func() {
+			if err := appointment.HandleAppointmentScheduling(h.db, appointment.SchedulingParams{
+				ConversationID: payload.ConversationUID,
+				ContactID:      payload.ContactUID,
+				StaffMessage:   payload.Text,
+				Log:            h.log,
+			}); err != nil {
+				h.log.Error("appointment scheduling failed", zap.Error(err))
+			}
+		}()
 
 		return
 	}

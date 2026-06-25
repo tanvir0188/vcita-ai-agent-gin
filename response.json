@@ -1,0 +1,219 @@
+{
+    "status": "OK",
+    "data": {
+        "services": [
+            {
+                "id": "7u8g9agyczmujeeq",
+                "type": "AppointmentService",
+                "name": "LifePact: Initial Consultation",
+                "charge_type": "no_price",
+                "price": 0,
+                "currency": "USD",
+                "duration": 15,
+                "interaction_type": "client_phone",
+                "image_path": "",
+                "photo_path": null,
+                "description": null,
+                "approval_mode": "single_choice",
+                "staff_settings": {
+                    "random_selection": false,
+                    "joint_availability": null
+                },
+                "color_id": 23,
+                "display": true,
+                "service_type": "appointment",
+                "max_attendance": null,
+                "display_missing_error": false,
+                "business_enabled": true,
+                "meeting_interaction_details": "2039948268",
+                "event_display_remaining_spots": false,
+                "created_at": "2026-01-06T14:41:20.000Z",
+                "updated_at": "2026-01-06T14:45:47.000Z",
+                "business_uid": "qdi2b2hoeq5sfqhi",
+                "booking_restriction": {
+                    "is_client_restricted": false
+                },
+                "taxes": [],
+                "arrival_window_value": 0,
+                "providers_staff": [
+                    "3r8b7k4m4vhy8nuk",
+                    "mk1jhu0nci87b1he",
+                    "700lgx63xub75tgq",
+                    "a3uptvcs0e2g670q",
+                    "cd6ak2gyrciydjvk",
+                    "iydw7h5wo3okp923",
+                    "0jf5p9jp2uheimq5"
+                ],
+                "padding": 0,
+                "weekly_availability_attributes": null
+            },
+            {
+                "id": "z7xzzpp7st72smcd",
+                "type": "AppointmentService",
+                "name": "LifePact: Lab and Protocol Review",
+                "charge_type": "no_price",
+                "price": 0,
+                "currency": "USD",
+                "duration": 30,
+                "interaction_type": "client_phone",
+                "image_path": "",
+                "photo_path": null,
+                "description": null,
+                "approval_mode": "single_choice",
+                "staff_settings": {
+                    "random_selection": false,
+                    "joint_availability": null
+                },
+                "color_id": 10,
+                "display": true,
+                "service_type": "appointment",
+                "max_attendance": null,
+                "display_missing_error": false,
+                "business_enabled": true,
+                "meeting_interaction_details": null,
+                "event_display_remaining_spots": false,
+                "created_at": "2026-01-06T14:41:46.000Z",
+                "updated_at": "2026-01-06T14:45:33.000Z",
+                "business_uid": "qdi2b2hoeq5sfqhi",
+                "booking_restriction": {
+                    "is_client_restricted": false
+                },
+                "taxes": [],
+                "arrival_window_value": 0,
+                "providers_staff": [
+                    "3r8b7k4m4vhy8nuk",
+                    "mk1jhu0nci87b1he",
+                    "700lgx63xub75tgq",
+                    "a3uptvcs0e2g670q",
+                    "cd6ak2gyrciydjvk",
+                    "iydw7h5wo3okp923",
+                    "0jf5p9jp2uheimq5"
+                ],
+                "padding": 0,
+                "weekly_availability_attributes": null
+            },
+            {
+                "id": "y0o6dpfncczgd3yr",
+                "type": "AppointmentService",
+                "name": "Gentry's Meeting Room",
+                "charge_type": "no_price",
+                "price": 0,
+                "currency": "USD",
+                "duration": 30,
+                "interaction_type": "client_phone",
+                "image_path": "https://res.cloudinary.com/livesite/image/upload/c_fill,h_275,w_600/v1/Services/Healthcare/840x630_alex-green",
+                "photo_path": "Services/Healthcare/840x630_alex-green",
+                "description": null,
+                "approval_mode": "single_choice",
+                "staff_settings": {
+                    "random_selection": false,
+                    "joint_availability": null
+                },
+                "color_id": 24,
+                "display": true,
+                "service_type": "appointment",
+                "max_attendance": null,
+                "display_missing_error": false,
+                "business_enabled": true,
+                "meeting_interaction_details": "2039948268",
+                "event_display_remaining_spots": false,
+                "created_at": "2025-06-20T17:01:23.000Z",
+                "updated_at": "2026-01-06T14:44:56.000Z",
+                "business_uid": "qdi2b2hoeq5sfqhi",
+                "booking_restriction": {
+                    "is_client_restricted": false
+                },
+                "taxes": [],
+                "arrival_window_value": 0,
+                "providers_staff": [
+                    "3r8b7k4m4vhy8nuk"
+                ],
+                "padding": 0,
+                "weekly_availability_attributes": null
+            }
+        ],
+        "next_page": null
+    }
+}
+{
+    "status": "OK",
+    "data": {
+        "availabilities": {
+            "2026-06-30": [
+                {
+                    "staff_id": "700lgx63xub75tgq",
+                    "spots_total": 1,
+                    "spots_open": 1,
+                    "resources_per_service": [
+                        []
+                    ],
+                    "start_time": "2026-06-30T13:00:00+00:00",
+                    "duration_minutes": 15,
+                    "event_instance_id": null
+                },
+                {
+                    "staff_id": "700lgx63xub75tgq",
+                    "spots_total": 1,
+                    "spots_open": 1,
+                    "resources_per_service": [
+                        []
+                    ],
+                    "start_time": "2026-06-30T13:15:00+00:00",
+                    "duration_minutes": 15,
+                    "event_instance_id": null
+                },
+            ]
+        },
+        "time_zone": "UTC"
+    }
+}
+
+{
+    "appointments": [
+        {
+            "client_id": "06dodrl3k4w5k1rd",
+            "conversation_id": "",
+            "title": "LifePact: Initial Consultation",
+            "start_time": "2026-06-26T09:00:00.000Z",
+            "end_time": "2026-06-26T09:15:00.000Z",
+            "padding": 0,
+            "approval_mode": "single_choice",
+            "min_hours_before_meeting": 24,
+            "future_bookings_limit": 0,
+            "remind_before_in_hours_1": 24,
+            "remind_before_in_hours_2": 0,
+            "meeting_reminder_sms_1": false,
+            "meeting_reminder_sms_2": false,
+            "sms_booking_confirmation": false,
+            "auto_follow_up_hours": 0,
+            "interaction_type": "client_phone",
+            "interaction_details": "01853958635",
+            "charge_type": "no_price",
+            "price": null,
+            "currency": "USD",
+            "require_confirmation": false,
+            "service_id": "7u8g9agyczmujeeq",
+            "staff_id": "0jf5p9jp2uheimq5",
+            "additional_staffs": "",
+            "mobile": false,
+            "source_type": "initiated_by_staff",
+            "matter_uid": "2y1ncrj8uh7qk8ye",
+            "auto_redeem": false,
+            "agenda": "",
+            "tax_uids": [],
+            "set_arrival_window_as_default": false,
+            "resource_uids": [],
+            "is_recurring": false,
+            "recurring": false,
+            "time_start": "2026-06-26T09:00:00.000Z",
+            "frequency": 1,
+            "rule_type": "weekly",
+            "monthly_type": "day_of_month",
+            "days_of_week": "[\"friday\"]",
+            "count": null,
+            "til": "2026-07-26T09:15:00.000Z"
+        }
+    ],
+    "unified_payment_link": false,
+    "new_api": true
+}

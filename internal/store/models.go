@@ -37,8 +37,8 @@ type Conversation struct {
 	gorm.Model
 	ID uint `gorm:"primaryKey"`
 
-	ConversationID string `gorm:"uniqueIndex;not null"`
-	AssignedStaffID string 
+	ConversationID  string `gorm:"uniqueIndex;not null"`
+	AssignedStaffID string
 
 	LastMessageID         string
 	LastCustomerMessageID string
@@ -62,29 +62,51 @@ type Conversation struct {
 	HasEscalated bool `gorm:"default:false"`
 
 	AutoReplyOffUntil *time.Time
+	AutoReplyOff      bool `gorm:"default:false"`
 
 	PendingMessageID string
 }
 
 type ClientSyncState struct {
+	gorm.Model
 	ID uint `gorm:"primaryKey"`
 
 	MatterUID string `gorm:"size:100;uniqueIndex;not null"`
 
 	HasMedications bool `gorm:"default:false"`
 
-	MedicationNoteUID  string `gorm:"size:100"`	
+	MedicationNoteUID string `gorm:"size:100"`
 
 	LastAICheckAt *time.Time
 
 	LastReminderSentAt *time.Time
-	
-	PartialReminderNeeded bool
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	PartialReminderNeeded bool
 }
 
+// internal/store/models.go (or wherever your models live)
+
+type Appointment struct {
+	gorm.Model
+
+	ConversationID string `gorm:"index"`
+	ContactID      string
+
+	ServiceID   string
+	ServiceName string // raw name from AI, before matching
+
+	Status string
+	// pending     — AI detected needs_scheduling, not yet booked
+	// scheduled   — successfully booked in vcita
+	// failed      — booking attempt failed
+	// cancelled
+
+	StartTime *time.Time
+	EndTime   *time.Time
+
+	VcitaAppointmentID *string
+	VcitaClientID      string // needed for BookAppointment call
+}
 
 // RefillSchedule holds a medication refill reminder for one patient.
 
