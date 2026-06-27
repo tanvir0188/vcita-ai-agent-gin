@@ -1,4 +1,4 @@
-package conversations
+package appointments
 
 import (
 	"gorm.io/gorm"

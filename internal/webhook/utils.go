@@ -28,6 +28,11 @@ func (h *Handler) processWebhook(
 	if err != nil {
 		logger.Log.Error("failded to get conversation state")
 	}
+	if state.AutoReplyOff {
+		h.log.Info("AI replies are disabled for this conversation due to escalation",
+			zap.String("conversation_id", payload.ConversationUID))
+		return
+	}
 	if state.AutoReplyOffUntil != nil && time.Now().Before(*state.AutoReplyOffUntil) {
 		h.log.Info("AI replies are disabled for this conversation due to escalation",
 			zap.String("conversation_id", payload.ConversationUID))

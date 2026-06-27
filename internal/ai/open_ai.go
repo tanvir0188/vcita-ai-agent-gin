@@ -93,16 +93,21 @@ func ConfirmedAppointmentDate(incomingMessage string) (*AppointmentAiResponse, e
 	"Thank you for reaching out! How can I help you today?"
 
 	Extract:
-	- service_name: strip duration/channel suffix. "LifePact: Initial Consultation (15 min, phone)" → "LifePact: Initial Consultation"
+	- needs_scheduling: boolean.(set's to true if it needs scheduling, false otherwise)
+	- service_name: strip duration/channel suffix. "LifePact: Initial Consultation (15 min, phone)" → "LifePact: Initial Consultation". "LifePact: Lab and Protocol Review (30 min)"→"LifePact: Lab and Protocol Review"
 	- preferred_time: the client's first choice, ISO 8601 with timezone offset
 	- backup_time: the client's second choice if mentioned, ISO 8601 with timezone offset. null if not mentioned.
+	- start_time: the client's first choice, ISO 8601 with timezone offset.
+	- end_time: based on the service name, you can get the duration. Add the duration and get the end_time in ISO 8601 with timezone offset.
 
 	Return ONLY valid JSON, no markdown:
 	{
 		"needs_scheduling": true,
 		"service_name": "LifePact: Initial Consultation",
 		"preferred_time": "2026-06-27T09:00:00-05:00",
-		"backup_time": "2026-06-27T17:00:00-05:00"
+		"backup_time": "2026-06-27T17:00:00-05:00",
+		"start_time":"2026-06-27T09:00:00-05:00",
+		"end_time":"2026-06-27T09:00:00-05:00"
 	}
 
 	If needs_scheduling is false, return all other fields as null/empty.`

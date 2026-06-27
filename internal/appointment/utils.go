@@ -10,6 +10,7 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
+	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 	"go.uber.org/zap"
 )
 
@@ -29,9 +30,19 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 		return fmt.Errorf("AI extraction failed: %w", err)
 	}
 
+	startTimeStr := "nil"
+	if aiResp.StartTime != nil {
+		startTimeStr = aiResp.StartTime.Format(time.RFC3339)
+	}
+	endTimeStr := "nil"
+	if aiResp.EndTime != nil {
+		endTimeStr = aiResp.EndTime.Format(time.RFC3339)
+	}
 	p.Log.Info("appointment AI result",
 		zap.Bool("needs_scheduling", aiResp.NeedsScheduling),
 		zap.String("service_name", aiResp.ServiceName),
+		zap.String("start_date", startTimeStr),
+		zap.String("end_date", endTimeStr),
 	)
 
 	if !aiResp.NeedsScheduling {
@@ -52,11 +63,17 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 	slot, err := findFirstAvailableSlot(serviceID, aiResp.PreferredTime, aiResp.BackupTime)
 	if err != nil {
 		// No slot found — leave auto-reply paused for manual follow-up.
+
 		p.Log.Warn("no available slot found, leaving auto-reply paused",
 			zap.String("conversation_id", p.ConversationID),
 			zap.Error(err),
 		)
+		utils.CreateMessage(p.ContactID, "No slot found in the given time")
+		if err := db.SetAutoReplyOn(p.ConversationID); err != nil {
+			return fmt.Errorf("failed to pause auto-reply: %w", err)
+		}
 		return nil
+
 	}
 
 	p.Log.Info("slot found",

@@ -15,7 +15,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	client "github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/appointments"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -77,12 +78,14 @@ func (s *APIServer) setupRouter() *gin.Engine {
 
 	store := user.NewStore(s.db.GetGorm())
 
-	clientStore := client.NewStore(s.db.GetGorm())
+	clientStore := conversations.NewStore(s.db.GetGorm())
+	appointmentStore := appointments.NewStore(s.db.GetGorm())
 
 	api := r.Group("/api/v1")
 
 	user.RegisterRoutes(api, store)
-	client.ClientRoutes(api, clientStore)
+	conversations.ClientRoutes(api, clientStore)
+	appointments.AppointmentRoutes(api, appointmentStore)
 
 	webhookHandler := webhook.New(
 		s.cfg.VcitaWebhookSecret,
