@@ -43,9 +43,18 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 		zap.String("service_name", aiResp.ServiceName),
 		zap.String("start_date", startTimeStr),
 		zap.String("end_date", endTimeStr),
+		zap.String("interaction_details", aiResp.InteractionDetails),
 	)
 
 	if !aiResp.NeedsScheduling {
+		return nil
+	}
+
+	if aiResp.PreferredTime == nil {
+		p.Log.Warn("needs_scheduling true but no preferred_time extracted — skipping",
+			zap.String("conversation_id", p.ConversationID),
+			zap.String("service_name", aiResp.ServiceName),
+		)
 		return nil
 	}
 
@@ -62,18 +71,16 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 	// 4. Try preferred time, then backup.
 	slot, err := findFirstAvailableSlot(serviceID, aiResp.PreferredTime, aiResp.BackupTime)
 	if err != nil {
-		// No slot found — leave auto-reply paused for manual follow-up.
-
 		p.Log.Warn("no available slot found, leaving auto-reply paused",
 			zap.String("conversation_id", p.ConversationID),
 			zap.Error(err),
 		)
+		// Only message the client when we genuinely checked and found nothing.
 		utils.CreateMessage(p.ContactID, "No slot found in the given time")
 		if err := db.SetAutoReplyOn(p.ConversationID); err != nil {
-			return fmt.Errorf("failed to pause auto-reply: %w", err)
+			return fmt.Errorf("failed to re-enable auto-reply: %w", err)
 		}
 		return nil
-
 	}
 
 	p.Log.Info("slot found",
@@ -83,12 +90,13 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 
 	// 5. Book the appointment.
 	booking, err := BookAppointment(config.Envs.VcitaBusinessToken, BookingRequest{
-		BusinessID: config.Envs.BusinessUid,
-		ClientID:   p.ContactID,
-		MatterUID:  p.ConversationID,
-		ServiceID:  serviceID,
-		StaffID:    slot.StaffID,
-		StartTime:  slot.StartTime,
+		BusinessID:         config.Envs.BusinessUid,
+		ClientID:           p.ContactID,
+		MatterUID:          p.ConversationID,
+		ServiceID:          serviceID,
+		StaffID:            slot.StaffID,
+		StartTime:          slot.StartTime,
+		InteractionDetails: aiResp.InteractionDetails,
 	})
 	if err != nil {
 		_ = db.UpsertAppointment(&store.Appointment{
@@ -98,6 +106,13 @@ func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
 			ServiceName:    aiResp.ServiceName,
 			Status:         "failed",
 		})
+
+		if err := db.SetAutoReplyOn(p.ConversationID); err != nil {
+			p.Log.Error("booking API failed, failed to re-enable auto-reply",
+				zap.String("conversation_id", p.ConversationID),
+				zap.Error(err),
+			)
+		}
 		return fmt.Errorf("booking API failed: %w", err)
 	}
 

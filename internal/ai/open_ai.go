@@ -76,8 +76,8 @@ func ConfirmedAppointmentDate(incomingMessage string) (*AppointmentAiResponse, e
 	var systemPrompt string = ConfirmedAppointmentDateSystemPrompt
 
 	fullInput := fmt.Sprintf(
-		"System prompt:%s\nUser message:\n%s",
-		systemPrompt, incomingMessage,
+		"Today's date: %s \nSystem prompt: %s \nUser message: \n%s",
+		time.Now().UTC().Format("2006-01-02"), systemPrompt, incomingMessage,
 	)
 
 	resp, err := client.Responses.New(

@@ -27,6 +27,7 @@ var ConfirmedAppointmentDateSystemPrompt string = `You are an appointment schedu
 	- backup_time: the client's second choice if mentioned, ISO 8601 with timezone offset. null if not mentioned.
 	- start_time: the client's first choice, ISO 8601 with timezone offset.
 	- end_time: based on the service name, you can get the duration. Add the duration and get the end_time in ISO 8601 with timezone offset.
+	- interaction_details: phone number or how they would like to interact
 
 	Return ONLY valid JSON, no markdown:
 	{
@@ -36,6 +37,7 @@ var ConfirmedAppointmentDateSystemPrompt string = `You are an appointment schedu
 		"backup_time": "2026-06-27T17:00:00-05:00",
 		"start_time":"2026-06-27T09:00:00-05:00",
 		"end_time":"2026-06-27T09:00:00-05:00"
+		"interaction_details":"018xxxxxxxx"
 	}
 
 	If needs_scheduling is false, return all other fields as null/empty.`

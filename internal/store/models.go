@@ -105,6 +105,7 @@ type Appointment struct {
 
 	StartTime *time.Time
 	EndTime   *time.Time
+	
 
 	VcitaAppointmentID *string
 	VcitaClientID      string // needed for BookAppointment call

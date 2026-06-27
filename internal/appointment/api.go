@@ -84,11 +84,12 @@ func BookAppointment(token string, req BookingRequest) (*BookingDetails, error) 
 	// Flatten out the important fields into the simple return struct
 	b := apiResponse.Data.Booking
 	return &BookingDetails{
-		Title:          b.Title,
-		StartTime:      b.StartTime,
-		Duration:       b.Duration,
-		ClientID:       b.ClientID,
-		StaffID:        b.StaffID,
-		ConversationID: b.ConversationID,
+		Title:              b.Title,
+		StartTime:          b.StartTime,
+		Duration:           b.Duration,
+		ClientID:           b.ClientID,
+		StaffID:            b.StaffID,
+		ConversationID:     b.ConversationID,
+		InteractionDetails: "01853958635",
 	}, nil
 }

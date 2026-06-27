@@ -26,12 +26,13 @@ type SmartReplyPayload struct {
 }
 
 type AppointmentAiResponse struct {
-	NeedsScheduling bool       `json:"needs_scheduling"`
-	ServiceName     string     `json:"service_name"`
-	PreferredTime   *time.Time `json:"preferred_time"`
-	BackupTime      *time.Time `json:"backup_time"`
-	StartTime       *time.Time `json:"start_time"`
-	EndTime         *time.Time `json:"end_time"`
+	NeedsScheduling    bool       `json:"needs_scheduling"`
+	ServiceName        string     `json:"service_name"`
+	PreferredTime      *time.Time `json:"preferred_time"`
+	InteractionDetails string     `json:"interaction_details"`
+	BackupTime         *time.Time `json:"backup_time"`
+	StartTime          *time.Time `json:"start_time"`
+	EndTime            *time.Time `json:"end_time"`
 }
 
 // MedicationEntry represents a single medication in the refill prediction response.

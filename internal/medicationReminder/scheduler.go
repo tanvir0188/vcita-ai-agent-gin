@@ -81,6 +81,7 @@ func ProcessMedicationReminders(db *gorm.DB, refillStore Store) error {
 			// Predict medication refill only for the test matterUID.
 			var resp *ai.MedicationRefillResponse
 			if clientCopy.MatterUid == "2y1ncrj8uh7qk8ye" {
+				log.Printf("inititationg the prediction for test account.")
 				var err error
 				resp, err = ai.PredictMedicationRefill(clientCopy.Notes)
 				if err != nil {
@@ -91,6 +92,7 @@ func ProcessMedicationReminders(db *gorm.DB, refillStore Store) error {
 				// No prediction – create empty response to keep sync state consistent.
 				resp = &ai.MedicationRefillResponse{ReminderNeeded: false, PartialReminder: false, Medications: nil}
 			}
+			log.Printf("ai response: %v", resp)
 
 			// Create a reminder message only if we have a valid response.
 			if resp != nil && resp.Response != nil {
