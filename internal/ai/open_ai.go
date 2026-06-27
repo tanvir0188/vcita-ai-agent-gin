@@ -106,7 +106,7 @@ func ConfirmedAppointmentDate(incomingMessage string) (*AppointmentAiResponse, e
 	return &result, nil
 }
 
-func PredictMedicaitonRefill(medicationNote string) (*MedicationRefillResponse, error) {
+func PredictMedicationRefill(medicationNote string) (*MedicationRefillResponse, error) {
 	apiKey := config.Envs.OpenAPIKey
 	client := openai.NewClient(
 		option.WithAPIKey(apiKey),
@@ -150,6 +150,3 @@ func PredictMedicaitonRefill(medicationNote string) (*MedicationRefillResponse, 
 
 	return &result, nil
 }
-
-
-

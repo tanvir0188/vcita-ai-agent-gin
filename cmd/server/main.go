@@ -16,6 +16,7 @@ import (
 func main() {
 	debug.SetMemoryLimit(800 * 1024 * 1024)
 	fmt.Println("main started")
+	
 
 	// clients, err := medicationreminder.GetClientsWithCurrentMedications()
 	// if err != nil {

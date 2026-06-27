@@ -73,6 +73,8 @@ type ClientSyncState struct {
 
 	MatterUID string `gorm:"size:100;uniqueIndex;not null"`
 
+	RemindMedication bool `gorm:"default:true"`
+
 	HasMedications bool `gorm:"default:false"`
 
 	MedicationNoteUID string `gorm:"size:100"`

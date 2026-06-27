@@ -1,7 +1,7 @@
 package appointments
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -20,13 +20,23 @@ func AppointmentRoutes(rg *gin.RouterGroup, s *Store) {
 func (s *Store) ListAppointments(c *gin.Context) {
 	var appointments []store.Appointment
 
+	// meds, err := medicationreminder.GetClientsWithCurrentMedications()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// for _, med := range meds {
+	// 	if med.MatterUid == "2y1ncrj8uh7qk8ye" {
+	// 		log.Printf("med: %+v\n", med)
+	// 	}
+	// }
+
 	page := 1
 	limit := 10
 	if p := c.Query("page"); p != "" {
-		fmt.Sscanf(p, "%d", &page)
+		log.Printf("page: %s", p)
 	}
 	if l := c.Query("limit"); l != "" {
-		fmt.Sscanf(l, "%d", &limit)
+		log.Printf("limit: %s", l)
 	}
 
 	if page < 1 {
@@ -67,5 +77,3 @@ func (s *Store) ListAppointments(c *gin.Context) {
 		},
 	})
 }
-
-

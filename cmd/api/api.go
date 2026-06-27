@@ -17,9 +17,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/appointments"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
+	medicationrefill "github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/medicationRefill"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
+	medicationreminder "github.com/tanvir0188/vcita-ai-agent/internal/medicationReminder"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
 )
@@ -63,29 +65,28 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// templatePath := filepath.Join(execPath, "templates", "*.tmpl")
-	r.Static("/static", "./static")
-	r.LoadHTMLGlob("templates/*.tmpl")
-	r.LoadHTMLGlob("templates/*/*.tmpl")
 
 	public := r.Group("/")
 
 	public.GET("", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"title": "Main website",
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Hello World",
 		})
 	})
 
+	//Initializing the stores from different packages
 	store := user.NewStore(s.db.GetGorm())
-
 	clientStore := conversations.NewStore(s.db.GetGorm())
 	appointmentStore := appointments.NewStore(s.db.GetGorm())
+	medicationReminderStore := medicationrefill.NewStore(s.db.GetGorm())
 
 	api := r.Group("/api/v1")
 
+	//registering the router groups
 	user.RegisterRoutes(api, store)
 	conversations.ClientRoutes(api, clientStore)
 	appointments.AppointmentRoutes(api, appointmentStore)
+	medicationrefill.MedicationRemindertRoutes(api, medicationReminderStore)
 
 	webhookHandler := webhook.New(
 		s.cfg.VcitaWebhookSecret,
@@ -117,6 +118,9 @@ func (s *APIServer) setupRouter() *gin.Engine {
 }
 
 func (s *APIServer) Run() error {
+	medicationReminderStore := s.db
+	go medicationreminder.ScheduleDailyReminder(s.db.GetGorm(), medicationReminderStore)
+
 	router := s.setupRouter()
 	s.log.Info("====================================")
 	s.log.Info("vcita-ai-agent started successfully")

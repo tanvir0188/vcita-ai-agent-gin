@@ -13,6 +13,8 @@ import (
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
+	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
 )
 
 // reusable api request function
@@ -231,10 +233,24 @@ func GetClientsWithCurrentMedications() ([]Client, error) {
 		meds := ExtractCurrentMedications(c.Notes)
 
 		if meds == "" {
+
 			continue
 		}
 
 		c.Notes = meds
+		if c.MatterUid == "2y1ncrj8uh7qk8ye" {
+			res, err := ai.PredictMedicationRefill(c.Notes)
+			if err != nil {
+				return nil, err
+			}
+			resJson, _ := json.MarshalIndent(res, "", "  ")
+			log.Printf("Prediction for %s:\n%s\n", c.MatterUid, string(resJson))
+
+			_, err = utils.CreateMessage(c.UID, *res.Response)
+			if err != nil {
+				log.Printf("failed to create message: %v", err)
+			}
+		}
 		result = append(result, c)
 	}
 

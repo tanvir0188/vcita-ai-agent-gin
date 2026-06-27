@@ -39,6 +39,7 @@ type Client struct {
 	StaffIds  int    `json:"staff_ids"`
 	Notes     string `json:"notes"`
 	MatterUid string `json:"matter_uid"`
+	UID       string `json:"uid"`
 }
 
 type FilteredClient struct {

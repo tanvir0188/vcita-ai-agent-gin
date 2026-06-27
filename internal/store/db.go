@@ -2,12 +2,14 @@ package store
 
 import (
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
 	"github.com/tanvir0188/vcita-ai-agent/internal/crypto"
 )
 
@@ -18,6 +20,7 @@ type Store interface {
 	UpsertAppointment(appt *Appointment) error
 	SetAutoReplyOff(conversationID string) error
 	SetAutoReplyOn(conversationID string) error
+	CreateOrUpdateReminder(matterUID string, resp *ai.MedicationRefillResponse) error
 }
 
 // DB wraps the GORM database and the PHI encryptor.
@@ -71,6 +74,37 @@ func (db *DB) SetAutoReplyOn(conversationID string) error {
 		Error
 }
 
+func (db *DB) CreateOrUpdateReminder(matterUID string, resp *ai.MedicationRefillResponse) error {
+	// Find existing sync state
+	var syncState ClientSyncState
+	err := db.gorm.Where("matter_uid = ?", matterUID).First(&syncState).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+	now := time.Now()
+	// Prepare fields based on response
+	remind := resp.ReminderNeeded
+	partial := resp.PartialReminder
+	hasMeds := len(resp.Medications) > 0
+	if err == gorm.ErrRecordNotFound {
+		// Create new record
+		syncState = ClientSyncState{
+			MatterUID:             matterUID,
+			RemindMedication:      remind,
+			HasMedications:        hasMeds,
+			PartialReminderNeeded: partial,
+			LastAICheckAt:         &now,
+		}
+		return db.gorm.Create(&syncState).Error
+	}
+	// Update existing record
+	syncState.RemindMedication = remind
+	syncState.HasMedications = hasMeds
+	syncState.PartialReminderNeeded = partial
+	syncState.LastAICheckAt = &now
+	return db.gorm.Save(&syncState).Error
+}
+
 func (db *DB) GetGorm() *gorm.DB {
 	return db.gorm
 }
@@ -112,6 +146,7 @@ func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {
 		&User{},
 		&AuditLog{},
 		&Appointment{},
+		&ClientSyncState{},
 	); err != nil {
 		return nil, fmt.Errorf("store: auto-migration failed: %w", err)
 	}
