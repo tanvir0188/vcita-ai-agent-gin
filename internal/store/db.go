@@ -147,6 +147,7 @@ func New(dsn string, enc *crypto.Encryptor, log *zap.Logger) (*DB, error) {
 		&AuditLog{},
 		&Appointment{},
 		&ClientSyncState{},
+		&SystemSetting{},
 	); err != nil {
 		return nil, fmt.Errorf("store: auto-migration failed: %w", err)
 	}
@@ -170,4 +171,23 @@ func newGormZapWriter(log *zap.Logger) *gormZapWriter { return &gormZapWriter{lo
 
 func (w *gormZapWriter) Printf(format string, args ...interface{}) {
 	w.log.Sugar().Debugf("[gorm] "+format, args...)
+}
+
+func (db *DB) IsSystemEnabled() (bool, error) {
+	var setting SystemSetting
+	err := db.gorm.FirstOrCreate(&setting, SystemSetting{ID: 1, SystemEnabled: true}).Error
+	if err != nil {
+		return false, err
+	}
+	return setting.SystemEnabled, nil
+}
+
+func (db *DB) SetSystemEnabled(enabled bool) error {
+	var setting SystemSetting
+	err := db.gorm.FirstOrCreate(&setting, SystemSetting{ID: 1, SystemEnabled: true}).Error
+	if err != nil {
+		return err
+	}
+	setting.SystemEnabled = enabled
+	return db.gorm.Save(&setting).Error
 }

@@ -40,6 +40,17 @@ func New(secret string, db *store.DB, slackWebhookUrl string, openaiKey string, 
 // Handle is the Gin handler for POST /webhook.
 // It reads the raw body for signature verification, then dispatches async.
 func (h *Handler) ConversationCreateHandle(c *gin.Context) {
+	enabled, err := h.db.IsSystemEnabled()
+	if err != nil {
+		h.log.Error("failed to check system status", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	if !enabled {
+		h.log.Info("message webhook ignored: system is disabled")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "system is disabled"})
+		return
+	}
 
 	var envelope WebhookEnvelope
 

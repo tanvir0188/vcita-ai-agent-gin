@@ -105,7 +105,6 @@ type Appointment struct {
 
 	StartTime *time.Time
 	EndTime   *time.Time
-	
 
 	VcitaAppointmentID *string
 	VcitaClientID      string // needed for BookAppointment call
@@ -126,3 +125,10 @@ type AuditLog struct {
 }
 
 // Escalation records an escalation event requiring human review.
+
+// SystemSetting holds the global system state (singleton model with ID = 1).
+type SystemSetting struct {
+	gorm.Model
+	ID            uint `gorm:"primaryKey"`
+	SystemEnabled bool `gorm:"default:true"`
+}

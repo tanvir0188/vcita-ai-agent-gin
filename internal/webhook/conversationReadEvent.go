@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
@@ -39,6 +40,17 @@ type ConversationReadPayload struct {
 }
 
 func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
+	enabled, err := h.db.IsSystemEnabled()
+	if err != nil {
+		h.log.Error("failed to check system status", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	if !enabled {
+		h.log.Info("conversation read webhook ignored: system is disabled")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "system is disabled"})
+		return
+	}
 
 	h.log.Info("conversation read webhook received")
 
@@ -74,7 +86,7 @@ func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
 		zap.String("updated_at", payload.Data.UpdatedAt),
 	)
 
-	err := h.db.CreateOrUpdateConversationRead(
+	err = h.db.CreateOrUpdateConversationRead(
 		store.ConversationReadParams{
 			ConversationID: payload.Data.MatterUID,
 			HumanActive:    true,

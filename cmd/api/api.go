@@ -18,6 +18,7 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/appointments"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/conversations"
 	medicationrefill "github.com/tanvir0188/vcita-ai-agent/internal/admin/medicationrefill"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/settings"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
@@ -74,6 +75,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	clientStore := conversations.NewStore(s.db.GetGorm())
 	appointmentStore := appointments.NewStore(s.db.GetGorm())
 	medicationReminderStore := medicationrefill.NewStore(s.db.GetGorm())
+	settingsStore := settings.NewStore(s.db.GetGorm())
 
 	api := r.Group("/api/v1")
 
@@ -82,6 +84,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	conversations.ClientRoutes(api, clientStore)
 	appointments.AppointmentRoutes(api, appointmentStore)
 	medicationrefill.MedicationRemindertRoutes(api, medicationReminderStore)
+	settings.SettingsRoutes(api, settingsStore)
 
 	webhookHandler := webhook.New(
 		s.cfg.VcitaWebhookSecret,

@@ -8,3 +8,5 @@ vcita-agent
 bin/
 main
 data.json
+.agents/*
+skills-lock.json
