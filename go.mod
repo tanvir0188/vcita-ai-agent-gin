@@ -12,7 +12,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go v1.12.0
-	github.com/robfig/cron/v3 v3.0.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.48.0
 	gorm.io/driver/sqlite v1.6.0

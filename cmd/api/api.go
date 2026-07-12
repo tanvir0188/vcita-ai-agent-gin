@@ -15,13 +15,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/appointments"
-	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/conversations"
-	medicationrefill "github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/medicationRefill"
-	"github.com/tanvir0188/vcita-ai-agent/internal/admin_panel/user"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/appointments"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/conversations"
+	medicationrefill "github.com/tanvir0188/vcita-ai-agent/internal/admin/medicationrefill"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
-	medicationreminder "github.com/tanvir0188/vcita-ai-agent/internal/medicationReminder"
+	"github.com/tanvir0188/vcita-ai-agent/internal/medication"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
 )
@@ -60,11 +60,6 @@ func (s *APIServer) setupRouter() *gin.Engine {
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 	}))
-	//get run time path for loading templates
-	// execPath, err := os.Getwd()
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	public := r.Group("/")
 
@@ -75,7 +70,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	})
 
 	//Initializing the stores from different packages
-	store := user.NewStore(s.db.GetGorm())
+	userStore := user.NewStore(s.db.GetGorm())
 	clientStore := conversations.NewStore(s.db.GetGorm())
 	appointmentStore := appointments.NewStore(s.db.GetGorm())
 	medicationReminderStore := medicationrefill.NewStore(s.db.GetGorm())
@@ -83,7 +78,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	api := r.Group("/api/v1")
 
 	//registering the router groups
-	user.RegisterRoutes(api, store)
+	user.RegisterRoutes(api, userStore)
 	conversations.ClientRoutes(api, clientStore)
 	appointments.AppointmentRoutes(api, appointmentStore)
 	medicationrefill.MedicationRemindertRoutes(api, medicationReminderStore)
@@ -119,7 +114,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 
 func (s *APIServer) Run() error {
 	medicationReminderStore := s.db
-	go medicationreminder.ScheduleDailyReminder(s.db.GetGorm(), medicationReminderStore)
+	go medication.ScheduleDailyReminder(s.db.GetGorm(), medicationReminderStore)
 
 	router := s.setupRouter()
 	s.log.Info("====================================")

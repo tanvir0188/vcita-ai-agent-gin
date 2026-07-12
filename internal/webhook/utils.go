@@ -8,8 +8,9 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/ai"
 	"github.com/tanvir0188/vcita-ai-agent/internal/appointment"
 	"github.com/tanvir0188/vcita-ai-agent/internal/logger"
+	"github.com/tanvir0188/vcita-ai-agent/internal/notification"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
-	"github.com/tanvir0188/vcita-ai-agent/internal/utils"
+	"github.com/tanvir0188/vcita-ai-agent/internal/vcita"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -84,31 +85,8 @@ func (h *Handler) processWebhook(
 			zap.String("conversation_uid", payload.ConversationUID),
 		)
 
-		// latestMessages, err := utils.GetMessageHistory(
-		// 	payload.ConversationUID,
-		// )
-		// if err != nil {
-
-		// 	h.log.Error(
-		// 		"failed to fetch message history",
-		// 		zap.Error(err),
-		// 	)
-
-		// 	return
-		// }
-
-		// for _, message := range latestMessages {
-
-		// 	h.log.Info(
-		// 		"message history item",
-		// 		zap.String("uid", message.UId),
-		// 		zap.String("text", message.Text),
-		// 		zap.String("direction", message.Direction),
-		// 	)
-		// }
-
 		// get last message id and direction
-		latestMessage := utils.GetLatestMessage(payload.ConversationUID)
+		latestMessage := vcita.GetLatestMessage(payload.ConversationUID)
 
 		if latestMessage.Direction != "client_to_business" {
 
@@ -243,14 +221,14 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 		logger.Log.Warn("Human intervention required - escalating",
 			zap.String("conversation_id", params.ConversationID))
 
-		clientDetails, err := utils.GetClientDetail(webhookSecret, &params.ContactId)
+		clientDetails, err := vcita.GetClientDetail(webhookSecret, &params.ContactId)
 		if err != nil {
 			logger.Log.Error("failed to fetch client details for slack alert", zap.Error(err))
 		}
 		fetchedClient := clientDetails.Data.Client
 
 		// 2. Build the configuration payload
-		slackConfig := utils.SlackClient{
+		slackConfig := notification.SlackClient{
 			WebhookURL: *whUrl,         // Dereference *string to get the raw string URL
 			Text:       params.Text,    // Pass the generated text draft we just got from AI
 			Client:     &fetchedClient, // Pass the address of the ClientInfo struct
@@ -274,7 +252,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 			)
 			return
 		}
-		utils.SendMessageToSlack(slackConfig, params.AssignedStaffEmail, params.ContactId, escalationReason)
+		notification.SendMessageToSlack(slackConfig, params.AssignedStaffEmail, params.ContactId, escalationReason)
 
 	}
 
@@ -314,7 +292,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 	}
 
 	// Call real AI (Note: updated arguments to match our dynamic smart reply function)
-	reply_text, err := ai.GetSmartReplyEmail(params.ConversationID, params.ContactId)
+	reply_text, err := vcita.GetSmartReplyEmail(params.ConversationID, params.ContactId)
 	if err != nil {
 		logger.Log.Error("failed to generate smart reply", zap.Error(err))
 		return
@@ -333,7 +311,7 @@ func WaitForEvaluation(db *store.DB, webhookSecret *string, whUrl *string, param
 	}
 
 	// Send message via API
-	replied, err := utils.CreateMessage(params.ContactId, generatedReply)
+	replied, err := vcita.CreateMessage(params.ContactId, generatedReply)
 	if err != nil {
 		logger.Log.Error("failed to send AI reply", zap.Error(err))
 		return

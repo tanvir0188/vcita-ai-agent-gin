@@ -1,4 +1,0 @@
-curl --request GET \
-     --url 'https://api.vcita.biz/platform/v1/services/availability?id=7u8g9agyczmujeeq&start_date=2026-07-09T13%3A00%3A00.000Z&end_date=2026-07-09T13%3A30%3A00.000Z' \
-     --header 'accept: application/json' \
-     --header 'authorization: Bearer dd23c6f5e87959f69a419298ab3d28e071607cbdcf6124a3f176bab535c4399f'
