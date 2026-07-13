@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 )
@@ -39,15 +40,21 @@ func (s *Store) ListMedicationReminders(c *gin.Context) {
 	var total int64
 
 	if err := s.db.Model(&store.ClientSyncState{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve medication reminders",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to count medication reminders",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 	if err := s.db.Limit(limit).Offset(offset).Find(&medication).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve medication reminders",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to retrieve medication reminders",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -66,9 +73,12 @@ func (s *Store) ToggleMedicationReminder(c *gin.Context) {
 	id := c.Param("id")
 	err := s.ToggleReminder(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to toggle medication reminder",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to toggle medication reminder",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

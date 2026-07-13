@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 )
 
@@ -23,9 +24,12 @@ type ToggleSettingsPayload struct {
 func (s *Store) GetSettings(c *gin.Context) {
 	setting, err := s.GetSystemSetting()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve settings",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to get system settings",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -38,17 +42,23 @@ func (s *Store) GetSettings(c *gin.Context) {
 func (s *Store) ToggleSettings(c *gin.Context) {
 	var payload ToggleSettingsPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid payload",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusBadRequest,
+			Message: "failed to parse request payload",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	err := s.UpdateSystemSetting(payload.SystemEnabled)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to update settings",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to update system settings",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 

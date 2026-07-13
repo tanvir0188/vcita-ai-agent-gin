@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/settings"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"go.uber.org/zap"
@@ -40,7 +41,9 @@ type ConversationReadPayload struct {
 }
 
 func (h *ConversationHandler) ConversationReadHandle(c *gin.Context) {
-	enabled, err := h.db.IsSystemEnabled()
+	settingsStore := settings.NewStore(h.db.GetGorm())
+	setting, err := settingsStore.GetSystemSetting()
+	enabled := setting.SystemEnabled
 	if err != nil {
 		h.log.Error("failed to check system status", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})

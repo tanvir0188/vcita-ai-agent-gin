@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 )
@@ -41,9 +42,12 @@ func (s *Store) ListAppointments(c *gin.Context) {
 	var total int64
 
 	if err := s.db.Model(&store.Appointment{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to count appointments",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to count appointments",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -51,9 +55,12 @@ func (s *Store) ListAppointments(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Find(&appointments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve appointments",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to retrieve appointments",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 

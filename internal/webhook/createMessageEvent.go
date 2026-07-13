@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/settings"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 )
@@ -40,7 +41,9 @@ func New(secret string, db *store.DB, slackWebhookUrl string, openaiKey string, 
 // Handle is the Gin handler for POST /webhook.
 // It reads the raw body for signature verification, then dispatches async.
 func (h *Handler) ConversationCreateHandle(c *gin.Context) {
-	enabled, err := h.db.IsSystemEnabled()
+	settingsStore := settings.NewStore(h.db.GetGorm())
+	setting, err := settingsStore.GetSystemSetting()
+	enabled := setting.SystemEnabled
 	if err != nil {
 		h.log.Error("failed to check system status", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})

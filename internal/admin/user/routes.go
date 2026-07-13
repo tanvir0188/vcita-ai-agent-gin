@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
 	"github.com/tanvir0188/vcita-ai-agent/internal/shared"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
@@ -51,16 +52,22 @@ func (s *Store) HandleAdminLogin(c *gin.Context) {
 		Error
 
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "No user found with the given email",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusBadRequest,
+			Message: "No user found with the given email",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	if !user.IsActive {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "account is inactive",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusForbidden,
+			Message: "account is inactive",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -80,13 +87,23 @@ func (s *Store) HandleAdminLogin(c *gin.Context) {
 
 	accessToken, err := CreateAccessToken(secret, uint(user.ID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to generate token",
+			Err:     err,
+		})
+		c.Abort()
 		return
 	}
 
 	refreshToken, err := CreateRefreshToken(secret, uint(user.ID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate refresh token"})
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to generate refresh token",
+			Err:     err,
+		})
+		c.Abort()
 		return
 	}
 
@@ -137,9 +154,12 @@ func (s *Store) HandleRegister(c *gin.Context) {
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to hash password",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to hash password",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 	fullName := staff.DisplayName
@@ -158,9 +178,12 @@ func (s *Store) HandleRegister(c *gin.Context) {
 
 	err = s.db.Create(&user).Error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to create user",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to create user",
+			Err:     err,
 		})
+		c.Abort()
 		log.Println(err)
 		return
 	}
@@ -184,9 +207,12 @@ func (s *Store) ListUsersPage(c *gin.Context) {
 
 	err := s.db.Find(&users).Error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve users",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to retrieve users",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -215,17 +241,23 @@ func (s *Store) HandleProfile(c *gin.Context) {
 	var payload ProfilePayload
 
 	if err := shared.BindAndValidate(c, &payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		c.Error(&middleware.AppError{
+			Status:  http.StatusBadRequest,
+			Message: "failed to parse request payload",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	user, err := shared.GetUserFromRequest(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
+		c.Error(&middleware.AppError{
+			Status:  http.StatusUnauthorized,
+			Message: "failed to get user from request",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -233,9 +265,12 @@ func (s *Store) HandleProfile(c *gin.Context) {
 	fmt.Println(user.IsAdmin)
 
 	if err := s.db.First(&user, &user.ID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "user not found",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusNotFound,
+			Message: "user not found",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -252,16 +287,21 @@ func (s *Store) HandleProfile(c *gin.Context) {
 	}
 
 	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "no fields to update",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusBadRequest,
+			Message: "no fields to update",
 		})
+		c.Abort()
 		return
 	}
 
 	if err := s.db.Model(&user).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to update profile",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to update profile",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -278,16 +318,22 @@ func (s *Store) HandleProfile(c *gin.Context) {
 func (s *Store) HandleGetProfile(c *gin.Context) {
 	user, err := shared.GetUserFromRequest(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
+		c.Error(&middleware.AppError{
+			Status:  http.StatusUnauthorized,
+			Message: "failed to get user from request",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	if err := s.db.First(&user, &user.ID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "user not found",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusNotFound,
+			Message: "user not found",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -306,17 +352,23 @@ func (s *Store) HandleChangePassword(c *gin.Context) {
 	var payload PasswordPayload
 
 	if err := shared.BindAndValidate(c, &payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		c.Error(&middleware.AppError{
+			Status:  http.StatusBadRequest,
+			Message: "failed to parse request payload",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	user, err := shared.GetUserFromRequest(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
+		c.Error(&middleware.AppError{
+			Status:  http.StatusUnauthorized,
+			Message: "failed to get user from request",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -324,9 +376,12 @@ func (s *Store) HandleChangePassword(c *gin.Context) {
 	fmt.Println(user.IsAdmin)
 
 	if err := s.db.First(&user, &user.ID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "user not found",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusNotFound,
+			Message: "user not found",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -335,18 +390,24 @@ func (s *Store) HandleChangePassword(c *gin.Context) {
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to hash password",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to hash password",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
 	user.Password = string(hashedPassword)
 
 	if err := s.db.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to update password",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to update password",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 

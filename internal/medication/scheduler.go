@@ -22,7 +22,7 @@ type Store interface {
 // unless a partial reminder is required. The function processes clients in parallel with a maximum of 10 concurrent workers.
 func ProcessMedicationReminders(db *gorm.DB, refillStore Store) error {
 	log.Printf("[MedicationReminder] start fetching all clients")
-	// 1️⃣ Retrieve all clients (paged internally).
+	// Retrieve all clients (paged internally).
 	clients, err := GetAllClients()
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func ProcessMedicationReminders(db *gorm.DB, refillStore Store) error {
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// 2️⃣ Filter clients that need a check.
+	// Filter clients that need a check.
 	var toProcess []Client
 	for _, c := range clients {
 		meds := ExtractCurrentMedications(c.Notes)
@@ -63,7 +63,7 @@ func ProcessMedicationReminders(db *gorm.DB, refillStore Store) error {
 
 	log.Printf("[MedicationReminder] %d clients need processing", len(toProcess))
 
-	// 3️⃣ Worker pool – up to 10 concurrent predictions.
+	// Worker pool – up to 10 concurrent predictions.
 	const maxWorkers = 10
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 )
@@ -24,9 +25,12 @@ func (s *Store) toggleAutoReply(c *gin.Context) {
 
 	err := s.db.Where("id = ?", id).First(&convo).Error
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "conversation not found",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusNotFound,
+			Message: "conversation not found",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -35,9 +39,12 @@ func (s *Store) toggleAutoReply(c *gin.Context) {
 
 	err = s.db.Save(&convo).Error
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to update conversation",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to update conversation",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -76,9 +83,12 @@ func (s *Store) ListConversation(c *gin.Context) {
 	var total int64
 
 	if err := s.db.Model(&store.Conversation{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to count conversations",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to count conversations",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 
@@ -86,9 +96,12 @@ func (s *Store) ListConversation(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Find(&conversations).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to retrieve conversations",
+		c.Error(&middleware.AppError{
+			Status:  http.StatusInternalServerError,
+			Message: "failed to retrieve conversations",
+			Err:     err,
 		})
+		c.Abort()
 		return
 	}
 

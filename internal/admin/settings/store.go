@@ -9,6 +9,7 @@ type Store struct {
 	db *gorm.DB
 }
 
+// NewStore creates a new instance of Store.
 func NewStore(db *gorm.DB) *Store {
 	return &Store{db: db}
 }

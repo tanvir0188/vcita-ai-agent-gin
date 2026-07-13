@@ -18,11 +18,13 @@ import (
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/appointments"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/conversations"
 	medicationrefill "github.com/tanvir0188/vcita-ai-agent/internal/admin/medicationrefill"
+	"github.com/tanvir0188/vcita-ai-agent/internal/admin/middleware"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/settings"
 	"github.com/tanvir0188/vcita-ai-agent/internal/admin/user"
 	"github.com/tanvir0188/vcita-ai-agent/internal/audit"
 	"github.com/tanvir0188/vcita-ai-agent/internal/config"
-	"github.com/tanvir0188/vcita-ai-agent/internal/medication"
+
+	//"github.com/tanvir0188/vcita-ai-agent/internal/medication"
 	"github.com/tanvir0188/vcita-ai-agent/internal/store"
 	"github.com/tanvir0188/vcita-ai-agent/internal/webhook"
 )
@@ -78,6 +80,7 @@ func (s *APIServer) setupRouter() *gin.Engine {
 	settingsStore := settings.NewStore(s.db.GetGorm())
 
 	api := r.Group("/api/v1")
+	api.Use(middleware.ErrorHandler(s.log))
 
 	//registering the router groups
 	user.RegisterRoutes(api, userStore)
@@ -116,8 +119,8 @@ func (s *APIServer) setupRouter() *gin.Engine {
 }
 
 func (s *APIServer) Run() error {
-	medicationReminderStore := s.db
-	go medication.ScheduleDailyReminder(s.db.GetGorm(), medicationReminderStore)
+	//medicationReminderStore := medication.NewStore(s.db.GetGorm())
+	//go medication.ScheduleDailyReminder(s.db.GetGorm(), medicationReminderStore)
 
 	router := s.setupRouter()
 	s.log.Info("====================================")

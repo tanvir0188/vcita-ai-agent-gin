@@ -162,7 +162,8 @@ func (h *Handler) processWebhook(
 			zap.String("conversation_uid", payload.ConversationUID))
 
 		go func() {
-			if err := appointment.HandleAppointmentScheduling(h.db, appointment.SchedulingParams{
+			aptStore := appointment.NewStore(h.db.GetGorm())
+			if err := appointment.HandleAppointmentScheduling(aptStore, appointment.SchedulingParams{
 				ConversationID: payload.ConversationUID,
 				ContactID:      payload.ContactUID,
 				StaffMessage:   payload.Text,

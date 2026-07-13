@@ -21,7 +21,7 @@ type SchedulingParams struct {
 	Log            *zap.Logger
 }
 
-func HandleAppointmentScheduling(db store.Store, p SchedulingParams) error {
+func HandleAppointmentScheduling(db AppointmentStore, p SchedulingParams) error {
 	// 1. Extract scheduling intent from the platform AI's message.
 	aiResp, err := ai.ConfirmedAppointmentDate(p.StaffMessage)
 	if err != nil {
